@@ -1,0 +1,48 @@
+void automation.Cart_abandonment_update_stone_added_time(Int id)
+{
+cart_resp = zoho.crm.getRecordById("Connection",id);
+cart_id = cart_resp.get("Cart_Listed").get("id");
+Created_Time = cart_resp.get("Created_Time");
+queryMap = Map();
+cart_value = 0.0;
+pageSize = 200;
+nextToken = 0;
+iterations = "".leftpad(50).toList("");
+for each  i in iterations
+{
+	crm_query = "select Cart_Listed.id, Stones_Listed.msp_total from Connection where Cart_Listed.id = '" + cart_id + "' and Stones_Listed.tran_status = 'STOCK' limit " + pageSize + " offset " + nextToken;
+	queryMap.put("select_query",crm_query);
+	resp = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v3/coql"
+		type :POST
+		parameters:queryMap.toString()
+		connection:"crm"
+	];
+	if(resp != "")
+	{
+		for each  stone in resp.get("data")
+		{
+			cart_value = cart_value + ifNull(stone.get("Stones_Listed.msp_total"),0.0);
+		}
+		if(resp.containsKey("info") && resp.get("info").containsKey("more_records") && resp.get("info").get("more_records") == true)
+		{
+			nextToken = nextToken + pageSize;
+		}
+		else
+		{
+			break;
+		}
+	}
+	else
+	{
+		break;
+	}
+}
+info cart_value;
+mp = Map();
+mp.put("Added_Time",Created_Time);
+mp.put("Cart_Value",cart_value);
+update = zoho.crm.updateRecord("Carts",cart_id,mp,{"trigger":{"workflow"}});
+info update;
+}

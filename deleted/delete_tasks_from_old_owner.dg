@@ -1,0 +1,17 @@
+void automation.delete_tasks_from_old_owner(Int lead_id)
+{
+resp = zoho.crm.getRecordById("Leads",lead_id);
+related_tasks = zoho.crm.getRelatedRecords("Tasks","Leads",lead_id);
+for each  task in related_tasks
+{
+	Status = task.get("Status");
+	if(Status != "Completed" && resp.get("Owner").get("id") != task.get("Owner").get("id"))
+	{
+		deleteRecordMap = Map();
+		deleteRecordMap.put("module","Tasks");
+		deleteRecordMap.put("id",task.get("id"));
+		deleteResp = zoho.crm.invokeConnector("crm.delete",deleteRecordMap);
+		info deleteResp;
+	}
+}
+}

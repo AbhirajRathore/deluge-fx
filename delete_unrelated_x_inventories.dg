@@ -1,0 +1,94 @@
+void schedule.delete_unrelated_x_inventories()
+{
+module = list();
+module.add("Transaction_X_Inventory");
+module.add("Dispatch_X_Inventory");
+for each  moduleName in module
+{
+	info "Now processing module: " + moduleName;
+	if(moduleName == "Transaction_X_Inventory")
+	{
+		field_name = "Transaction";
+	}
+	else if(moduleName == "Dispatch_X_Inventory")
+	{
+		field_name = "Dispatch";
+	}
+	// Step 1: Fetch up to 200 records where Transaction.id is null
+	nextToken = 0;
+	idList = list();
+	iterations = "".leftpad(5).toList("");
+	for each  i in iterations
+	{
+		queryMap = Map();
+		queryMap.put("select_query","SELECT id FROM " + moduleName + " WHERE " + field_name + ".id is null or Stone.id  is null limit 2000 offset " + nextToken);
+		response = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v4/coql"
+			type :POST
+			body:queryMap.toString()
+			connection:"crm"
+		];
+		if(response == null || !response.containsKey("data"))
+		{
+			info "Null or invalid response for module: " + moduleName + ". Skipping to next module.";
+			break;
+		}
+		records = response.get("data");
+		for each  record in records
+		{
+			idList.add(record.get("id"));
+		}
+		if(response.containsKey("info") && response.get("info").containsKey("more_records") && response.get("info").get("more_records") == true)
+		{
+			nextToken = 2000;
+		}
+		else
+		{
+			break;
+		}
+	}
+	info "Number of records to be deleted : " + idList.size();
+	// Step 2: If no records left, break
+	if(idList.isEmpty())
+	{
+		info "No more records to delete.";
+		break;
+	}
+	// Step 3: Delete in batches of 100
+	iteration = "".leftPad(200).toList("");
+	for each  deleteBatch in iteration
+	{
+		if(idList.size() > 100)
+		{
+			deleteBatch = idList.subList(0,100);
+			param = Map();
+			param.put("ids",deleteBatch);
+			deleteResp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v4/" + moduleName + "/actions/mass_delete"
+				type :POST
+				body:param.toString()
+				connection:"currency_connection"
+			];
+			info "Deleted batch of " + deleteBatch.size() + " records.";
+			idList.removeAll(deleteBatch);
+		}
+		else
+		{
+			param = Map();
+			param.put("ids",idList);
+			deleteResp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v4/" + moduleName + "/actions/mass_delete"
+				type :POST
+				body:param.toString()
+				connection:"currency_connection"
+			];
+			// 			info deleteResp ;
+			info "Deleted records of " + idList.size() + " records.";
+			break;
+		}
+	}
+}
+}

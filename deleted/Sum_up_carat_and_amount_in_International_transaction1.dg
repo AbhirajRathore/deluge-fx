@@ -1,0 +1,44 @@
+void automation.Sum_up_carat_and_amount_in_International_transaction1(String crmAPIRequest)
+{
+CRMResponses = crmAPIRequest;
+dispatch_id = CRMResponses.getJson("params").getJSON("dispatch_id");
+Dispatch_details = zoho.crm.getRecordById("International_Transaction",dispatch_id);
+Bank_Rate = ifNull(Dispatch_details.get("Bank_Rate"),0.0);
+//new line
+Difference = ifNull(Dispatch_details.get("Difference"),0.0);
+resp = zoho.crm.getRelatedRecords("International_Stones","International_Transaction",dispatch_id);
+Amount_INR_total = 0;
+Amount_USD_total = 0;
+Carat_Total = 0;
+n_total = 0;
+for each  International_Stones in resp
+{
+	International_stone_id = International_Stones.get("id");
+	//new line
+	International_Stones_details = zoho.crm.getRecordById("International_Stones",International_stone_id);
+	//new line
+	MSP = ifNull(International_Stones_details.get("MSP"),0.0);
+	//new line
+	update_International_Stones_map = Map();
+	update_International_Stones_map.put("Bank_Rate",Bank_Rate);
+	update_International_Stones_map.put("MSP",MSP + Difference);
+	update_International_Stones = zoho.crm.updateRecord("International_Stones",International_stone_id,update_International_Stones_map);
+	International_Stones_details = zoho.crm.getRecordById("International_Stones",International_stone_id);
+	Amount_INR = International_Stones_details.get("Amount_INR");
+	Amount_USD = International_Stones_details.get("Amount_USD");
+	Carat = International_Stones_details.get("Carat");
+	n = 1;
+	Carat_Total = Carat_Total + Carat;
+	n_total = n_total + n;
+	Amount_INR_total = Amount_INR_total + Amount_INR;
+	Amount_USD_total = Amount_USD_total + Amount_USD;
+}
+mp = Map();
+mp.put("Total_Stones",n_total);
+mp.put("Total_Weight",Carat_Total);
+mp.put("Inv_Carat",Carat_Total);
+mp.put("Net_Amount_INR",Amount_INR_total);
+mp.put("Net_Amount_USD",Amount_USD_total);
+mp.put("Difference","");
+update_dispatach = zoho.crm.updateRecord("International_Transaction",dispatch_id,mp);
+}

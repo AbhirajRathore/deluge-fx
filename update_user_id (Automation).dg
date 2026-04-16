@@ -1,0 +1,26 @@
+void automation.update_user_id()
+{
+mp = Map();
+mp.put("user_id","cus_01JV1T2XA90K8PTCBE2MDY9W4E");
+mp.put("From_KGK_Online",true);
+update_contact = zoho.crm.updateRecord("Contacts",5870915000023437668,mp);
+info update_contact;
+// resp = zoho.crm.getRelatedRecords("Deals","Accounts",5870915000024123502);
+// info resp.size();
+// for each  deal in resp
+// {
+// 	deal_id = deal.get("id");
+// 	update_resp = zoho.crm.updateRecord("Deals",deal_id,{"Contact_Name":5870915000064419109});
+// 	info update_resp;
+// }
+// queryMap = Map();
+// queryMap.put("select_query","select id from Leads where user_id = 'cus_01J9KWT2FA2E0HXW236FWMPN65' limit 2000");
+// response = invokeurl
+// [
+// 	url :"https://www.zohoapis.com/crm/v7/coql"
+// 	type :POST
+// 	parameters:queryMap.toString()
+// 	connection:"crm"
+// ];
+// info response;
+}

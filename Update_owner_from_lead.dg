@@ -1,0 +1,24 @@
+void automation.Update_owner_from_lead(Int kyc_id,String name)
+{
+KYC_details = zoho.crm.getRecordById("KYC",kyc_id);
+Lead = KYC_details.get("Lead");
+if(Lead != null)
+{
+	Lead_id = Lead.get("id");
+	name = Lead.get("name");
+	resp = zoho.crm.getRecordById("Leads",Lead_id);
+	Owner = resp.get("Owner").get("id");
+	update = zoho.crm.updateRecord("KYC",kyc_id,{"Owner":Owner});
+	// 		info update;
+	mp = Map();
+	mp.put("Subject","Review KYC - " + name);
+	mp.put("Status","Not Started");
+	mp.put("Priority","High");
+	mp.put("Due_Date",today);
+	mp.put("Owner",Owner);
+	mp.put("What_Id",kyc_id);
+	mp.put("$se_module","KYC");
+	createTask = zoho.crm.createRecord("Tasks",mp);
+	info createTask;
+}
+}

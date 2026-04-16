@@ -1,0 +1,25 @@
+string button.update_user_id(String ids)
+{
+idList = ids.toList("|||");
+for each  lead_id in idList
+{
+	con_dtl = zoho.crm.getRecordById("Contacts",lead_id);
+	user_id = con_dtl.get("user_id");
+	mp = Map();
+	if(user_id == null)
+	{
+		mp.put("recent_activity_time","");
+		mp.put("recent_platform","");
+		mp.put("kgk_user_id","");
+		mp.put("From_KGK_Online",false);
+	}
+	else
+	{
+		mp.put("kgk_user_id",user_id);
+		mp.put("From_KGK_Online",true);
+	}
+	update = zoho.crm.updateRecord("Contacts",lead_id,mp);
+	info update;
+}
+return "";
+}

@@ -1,0 +1,42 @@
+string button.Print_preview(String d_id)
+{
+iterations = "".leftpad(20 - 1).toList("");
+pageCounter = 1;
+numRecords = 0;
+total_of_back = 0;
+total_carat = 0;
+for each  iteration in iterations
+{
+	page = pageCounter;
+	perPage = 200;
+	Inventory = zoho.crm.getRelatedRecords("Inventory","International_Disptaches",d_id,page,perPage);
+	if(Inventory.size() == 0)
+	{
+		break;
+	}
+	else
+	{
+		for each  stones in Inventory
+		{
+			stone_id = stones.get("Stone").get("id");
+			stone_name = stones.get("Stone").get("name");
+			pro = zoho.crm.getRecordById("Products",stone_id);
+			carat = ifNull(pro.get("carat"),0.0);
+			back_total = ifNull(pro.get("back_total"),0.0);
+			total_of_back = total_of_back + back_total;
+			total_carat = total_carat + carat;
+		}
+	}
+	pageCounter = pageCounter + 1;
+	numRecords = numRecords + Inventory.size();
+}
+mp = Map();
+mp.put("quantity",numRecords);
+mp.put("total_carat",total_carat);
+mp.put("Total_Back",total_of_back);
+mp.put("Item_Name",stone_name);
+info mp;
+update_resp = zoho.crm.updateRecord("International_Disptaches",d_id,mp);
+openUrl("https://crm.kgkgroup.com/crm/org821143611/Template.do?step=previewPop&entityId=" + d_id + "&module=CustomModule6&action=print&tIdx=10&relParentId=&TotalNotesCount=0&currentCount=3&model=detailPanel","new window");
+return mp + " - Print Preview is opened in a new tab";
+}

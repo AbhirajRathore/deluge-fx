@@ -1,0 +1,31 @@
+void automation.stones_return_functions13112(Int t_id)
+{
+iterations = "".leftpad(20 - 1).toList("");
+pageCounter = 1;
+stone_list = List();
+for each  iteration in iterations
+{
+	page = pageCounter;
+	perPage = 200;
+	International_Stones = zoho.crm.getRelatedRecords("Inventory","International_Transaction",t_id,page,perPage);
+	if(International_Stones.size() == 0)
+	{
+		break;
+	}
+	else
+	{
+		for each  stones in International_Stones
+		{
+			stone_name = stones.get("Stone").get("name");
+			stone_list.add(stone_name);
+		}
+	}
+	pageCounter = pageCounter + 1;
+}
+newline = hextoText("0A");
+// info stone_list;
+Stone_return = stone_list.toString().replaceAll(",",newline);
+info Stone_return;
+update_resp = zoho.crm.updateRecord("International_Transaction",t_id,{"Stones_Return":Stone_return});
+info update_resp;
+}

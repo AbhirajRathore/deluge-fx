@@ -1,0 +1,51 @@
+void automation.Sum_up_carat_and_amount_in_International_dispatch(Int dispatch_id)
+{
+// CRMResponses = crmAPIRequest;
+// dispatch_id = CRMResponses.getJson("params").getJSON("dispatch_id");
+// dispatch_id = "5870915000019897973";
+Dispatch_details = zoho.crm.getRecordById("International_Disptaches",dispatch_id);
+Bank_Rate = Dispatch_details.get("Bank_Rate");
+invlist = List();
+pageList = {1,2,3,4,5,6,7};
+Amount_INR_total = 0;
+Amount_USD_total = 0;
+Carat_Total = 0;
+n_total = 0;
+for each  page in pageList
+{
+	resp = zoho.crm.getRelatedRecords("International_Stones","International_Disptaches",dispatch_id,page,200);
+	if(resp.size() <= 0)
+	{
+		break;
+	}
+	else
+	{
+		for each  International_Stones in resp
+		{
+			International_stone_id = International_Stones.get("id");
+			update_International_Stones = zoho.crm.updateRecord("International_Stones",International_stone_id,{"Bank_Rate":Bank_Rate});
+			International_Stones_details = zoho.crm.getRecordById("International_Stones",International_stone_id);
+			Amount_INR = International_Stones_details.get("Amount_INR");
+			Amount_USD = International_Stones_details.get("Amount_USD");
+			Carat = International_Stones_details.get("Carat");
+			n = 1;
+			Carat_Total = Carat_Total + Carat;
+			n_total = n_total + n;
+			Amount_INR_total = Amount_INR_total + Amount_INR;
+			Amount_USD_total = Amount_USD_total + Amount_USD;
+		}
+	}
+}
+// info "Amount_INR_total - " + Amount_INR_total;
+// info "Amount_USD_total - " + Amount_USD_total;
+// info "Carat_Total - " + Carat_Total;
+// info "n_total - " + n_total;
+mp = Map();
+mp.put("Total_Stones",n_total);
+mp.put("Total_Weight",Carat_Total);
+mp.put("Inv_Carat",Carat_Total);
+mp.put("Net_Amount_INR",Amount_INR_total);
+mp.put("Net_Amount_USD",Amount_USD_total);
+update_dispatach = zoho.crm.updateRecord("International_Disptaches",dispatch_id,mp);
+info update_dispatach;
+}

@@ -1,0 +1,114 @@
+string standalone.manually_sync_account(String acc)
+{
+for each  rec in acc
+{
+	loc_map_str = standalone.get_variable_value("config_locations","","");
+	// 	info loc_map_str;
+	loc_list = loc_map_str.toList();
+	for each  loc in loc_list
+	{
+		if(loc.get("location_name") == rec.get("location_name").proper())
+		{
+			code = loc.get("location_code");
+			name = loc.get("location_name");
+			ledger_prefix = loc.get("ledger_prefix");
+		}
+	}
+	main_map = Map();
+	main_map.put("ledger_code",ledger_prefix + rec.get("ledger_code"));
+	main_map.put("admin_ledger_code",ledger_prefix + rec.get("ledger_code"));
+	main_map.put("nivid_ledger_sync_id",rec.get("nivid_ledger_sync_id"));
+	main_map.put("Account_Name",rec.get("ledger_name"));
+	main_map.put("ledger_display_name",rec.get("ledger_display_name"));
+	if(rec.get("account_type_code") != null)
+	{
+		account_type_code = rec.get("account_type_code").toNumber();
+	}
+	main_map.put("account_type_code",ifNull(account_type_code,""));
+	main_map.put("account_type_name",ifNull(rec.get("account_type_name"),""));
+	if(rec.get("location_code") != null)
+	{
+		location_code = rec.get("location_code").toNumber();
+	}
+	main_map.put("location_code",ifNull(location_code,0));
+	main_map.put("Location",name);
+	main_map.put("party_type",ifNull(rec.get("party_type"),""));
+	if(rec.get("ledger_group_code") != null)
+	{
+		ledger_group_code = rec.get("ledger_group_code").toNumber();
+	}
+	main_map.put("ledger_group_code",ifNull(ledger_group_code,""));
+	if(rec.get("active") > 0)
+	{
+		main_map.put("active",true);
+	}
+	else
+	{
+		main_map.put("active",false);
+	}
+	if(rec.get("is_broker") > 0)
+	{
+		main_map.put("is_broker",true);
+	}
+	else
+	{
+		main_map.put("active",false);
+	}
+	if(rec.get("is_import_export") > 0)
+	{
+		main_map.put("is_import_export",true);
+	}
+	else
+	{
+		main_map.put("is_import_export",false);
+	}
+	if(rec.get("purchase_by_name") != null)
+	{
+		purchase_by_name = rec.get("purchase_by_name").proper();
+	}
+	main_map.put("purchase_by_name",ifNull(purchase_by_name,""));
+	main_map.put("office_phone_num",ifNull(rec.get("office_phone_num"),""));
+	main_map.put("office_email",ifNull(rec.get("office_email"),""));
+	main_map.put("office_fax",ifNull(rec.get("office_fax"),""));
+	main_map.put("factory_address",ifNull(rec.get("factory_address"),""));
+	main_map.put("factory_state_name",ifNull(rec.get("factory_state_name"),""));
+	main_map.put("factory_country_code",ifNull(rec.get("factory_country_code"),""));
+	main_map.put("factory_phone_num",ifNull(rec.get("factory_phone_num"),""));
+	main_map.put("factory_email",ifNull(rec.get("factory_email"),""));
+	main_map.put("factory_fax",ifNull(rec.get("factory_fax"),""));
+	main_map.put("bank_name",ifNull(rec.get("bank_name"),""));
+	main_map.put("ifsc_code",ifNull(rec.get("ifsc_code"),""));
+	main_map.put("bank_account_num",ifNull(rec.get("bank_account_num"),""));
+	main_map.put("name_as_per_bank",ifNull(rec.get("name_as_per_bank"),""));
+	if(rec.get("transaction_limit") != null)
+	{
+		transaction_limit = rec.get("transaction_limit").toDecimal();
+	}
+	main_map.put("transaction_limit",ifNull(transaction_limit,0.0));
+	main_map.put("entry_date",ifNull(rec.get("entry_date"),""));
+	main_map.put("customer_info",ifNull(rec.get("customer_info"),""));
+	main_map.put("Customer_Status",ifNull(rec.get("Customer_Status"),""));
+	raw_date = rec.get("last_tran_date");
+	// "2025-11-17"
+	if(raw_date != null)
+	{
+		dt = raw_date.toDate();
+		safe_dt = dt.toString("yyyy-MM-dd") + "T12:00:00";
+		main_map.put("last_tran_date",safe_dt);
+	}
+	else
+	{
+		main_map.put("last_tran_date",null);
+	}
+	// 				main_map.put("last_tran_date",ifNull(rec.get("last_tran_date"),""));
+	main_map.put("Priority",ifNull(rec.get("Priority"),""));
+	main_map.put("terms",ifNull(rec.get("terms"),""));
+	main_map.put("office_address",ifNull(rec.get("office_address"),""));
+	main_map.put("office_state_name",ifNull(rec.get("office_state_name"),""));
+	main_map.put("office_country_name",ifNull(rec.get("office_country_name"),""));
+	// 			info main_map;
+	upsert_acc = zoho.crm.upsert("Accounts",main_map,{"duplicate_check_fields":{"ledger_code"}});
+	info upsert_acc;
+}
+return "";
+}

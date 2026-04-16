@@ -1,0 +1,33 @@
+void automation.Update_Address_from_the_Account(Int did)
+{
+dispatch_detatisl = zoho.crm.getRecordById("International_Disptaches",did);
+Account_id = dispatch_detatisl.get("Account_Name").get("id");
+acc_details = zoho.crm.getRecordById("Accounts",Account_id);
+Address_Section = acc_details.get("Address_Section");
+for each  rec in Address_Section
+{
+	Main_Address = rec.getJson("Main_Address");
+	// 	if(Main_Address == true)
+	// 	{
+	Address = rec.getJson("Address");
+	State = rec.getJson("State");
+	Country = rec.getJson("Country");
+	City = rec.getJson("City");
+	Pincode = rec.getJson("Pincode");
+	// 	}
+}
+paramap = Map();
+paramap.put("Billing_City",City);
+paramap.put("Billing_Code",Pincode);
+paramap.put("Billing_Country",Country);
+paramap.put("Billing_State",State);
+paramap.put("Billing_Street",Address);
+paramap.put("Shipping_City",City);
+paramap.put("Shipping_Code",Pincode);
+paramap.put("Shipping_Country",Country);
+paramap.put("Shipping_State",State);
+paramap.put("Shipping_Street",Address);
+info paramap;
+update_dispatch = zoho.crm.updateRecord("International_Disptaches",did,paramap);
+info update_dispatch;
+}

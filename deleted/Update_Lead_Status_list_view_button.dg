@@ -1,0 +1,49 @@
+string button.Update_Lead_Status_list_view_button(String id)
+{
+idList = id.toList("|||");
+for each  lead_id in idList
+{
+	lead_details = zoho.crm.getRecordById("Leads",lead_id);
+	referral_name = lead_details.get("referral_name");
+	if(referral_name == null)
+	{
+		info "Assign to Rishi";
+		mp = Map();
+		mp.put("Owner","5870915000081502001");
+		mp.put("Lead_Status","New Lead");
+		update_owner = zoho.crm.updateRecord("Leads",lead_id,mp,{"trigger":{"workflow","blueprint"}});
+		info update_owner;
+	}
+	else
+	{
+		All_users = zoho.crm.getRecords("users");
+		info "Users count - " + All_users.get("users").size();
+		users_data = All_users.get("users");
+		for each  user in users_data
+		{
+			if(user.get("first_name") == referral_name && user.get("status").contains("active"))
+			{
+				user_id = user.get("id");
+				break;
+			}
+		}
+		if(user_id == null)
+		{
+			info "Owner not found";
+			mp = Map();
+			mp.put("Owner","5870915000081502001");
+			mp.put("Lead_Status","New Lead");
+		}
+		else
+		{
+			mp = Map();
+			mp.put("Owner",user_id);
+			mp.put("Lead_Source","Existing Client");
+			mp.put("Lead_Status","Lead Assigned");
+		}
+		update_owner = zoho.crm.updateRecord("Leads",lead_id,mp,{"trigger":{"workflow","blueprint"}});
+		info update_owner;
+	}
+}
+return "";
+}

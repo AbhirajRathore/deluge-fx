@@ -1,0 +1,143 @@
+void schedule.new_arrival_daily_Email()
+{
+info today.getDayOfWeek();
+if(today.getDayOfWeek() != 1)
+{
+	user_id_list = list();
+	device_id_list = list();
+	email_list = list();
+	more_records = true;
+	numrecords = 0;
+	iterations = "".leftpad(5 - 1).toList("");
+	for each  iteration in iterations
+	{
+		if(more_records)
+		{
+			queryMap = Map();
+			queryMap.put("select_query","select id, user_id, Daily_New_Arrival, Email from Contacts where Email != '' and Daily_New_Arrival = true limit 2000 offset " + numrecords);
+			response = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v7/coql"
+				type :POST
+				parameters:queryMap.toString()
+				connection:"crm"
+			];
+			info response;
+			more_records = response.get("info").get("more_records");
+			data = response.get("data");
+			if(data.size() > 0)
+			{
+				for each  con in data
+				{
+					if(con.get("Email") != null)
+					{
+						email_list.add(con.get("Email").toString());
+					}
+				}
+			}
+			numrecords = numrecords + data.size();
+		}
+		else
+		{
+			break;
+		}
+	}
+	/* --------------------------------------------------------------
+Send Email Code Start
+---------------------------------------------------------
+	*/
+	// 	get Mailing list
+	// 	=====================
+	// 	response = invokeUrl [
+	// 		url: "https://marketingautomation.zoho.com/api/v1/getmailinglists"
+	// 		type: GET
+	// 		connection: "zoho_ma"
+	// 		];
+	// 		info response;
+	// // 	======================
+	// // 	Get journey key
+	// // 	=======================
+	// response = invokeUrl [
+	// 		url: "https://marketingautomation.zoho.com/api/v1/journeys"
+	// 		type: GET
+	// 		connection: "zoho_ma"
+	// 		];
+	// 		info response;
+	// //  	=========================
+	journey_key = "3z5cbadac870786dbfad9e1cc4534f850300f9a2d5083c016f1e92b8b588c385d2";
+	trigger_key = "3z5cbadac870786dbfad9e1cc4534f8503e5d5af07b2c8fe287def74d6a72cc3d6";
+	listkey = "3zea0c922d9f5fbcf0ada445c36a7323242572815a0c3780bcaec2fa852e52b07c";
+	iterations = "".leftpad(60 - 1).toList("");
+	for each  iteration in iterations
+	{
+		if(email_list.size() == 0)
+		{
+			break;
+		}
+		// 		for less than 200 records ...................
+		else if(email_list.size() <= 200 && email_list.size() > 0)
+		{
+			emailStr = "";
+			for each  email in email_list
+			{
+				if(emailStr != "")
+				{
+					emailStr = emailStr + "," + email;
+				}
+				else
+				{
+					emailStr = email;
+				}
+			}
+			mp = Map();
+			mp.put("lead_email",emailStr);
+			mp.put("triggerkey",trigger_key);
+			mp.put("listkey",listkey);
+			details = Map();
+			details.put("details",mp);
+			response = invokeurl
+			[
+				url :"https://marketingautomation.zoho.com/api/v1/journeys/" + journey_key + "/action/trigger"
+				type :POST
+				parameters:details
+				connection:"zoho_ma"
+			];
+			info response;
+			break;
+		}
+		// 		More than 200......................
+		else if(email_list.size() > 200)
+		{
+			// 			info "More than 200 records";
+			// 			info email_list.size();
+			new_list = email_list.subList(0,200);
+			emailStr = "";
+			for each  email in new_list
+			{
+				if(emailStr != "")
+				{
+					emailStr = emailStr + "," + email;
+				}
+				else
+				{
+					emailStr = email;
+				}
+			}
+			mp = Map();
+			mp.put("lead_email",emailStr);
+			mp.put("triggerkey",trigger_key);
+			mp.put("listkey",listkey);
+			details = Map();
+			details.put("details",mp);
+			response = invokeurl
+			[
+				url :"https://marketingautomation.zoho.com/api/v1/journeys/" + journey_key + "/action/trigger"
+				type :POST
+				parameters:details
+				connection:"zoho_ma"
+			];
+			email_list.removeAll(new_list);
+		}
+	}
+}
+}

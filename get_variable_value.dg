@@ -1,0 +1,68 @@
+string standalone.get_variable_value(String variable_api_name,String primary_key,String secondary_key)
+{
+// Function: get_variable_value
+// Purpose: Fetch Zoho variable value and return specific child/sub-child node if requested
+// Step 1: Fetch variable from Zoho CRM
+response = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v3/settings/variables/" + variable_api_name
+	type :GET
+	connection:"crm"
+];
+// Step 2: Extract variable value
+variable_value = response.get("variables").get(0).get("value");
+// Step 3: Try parsing JSON
+is_json = false;
+try 
+{
+	parsed_value = variable_value.toMap();
+	// Works if value is JSON
+	is_json = true;
+}
+catch (e)
+{
+	is_json = false;
+}
+// Step 4: If both keys are empty → return full value
+if(isnull(primary_key) || primary_key == "")
+{
+	return variable_value;
+}
+// Step 5: If first key given and JSON
+if(is_json && parsed_value.containsKey(primary_key))
+{
+	primary_value = parsed_value.get(primary_key);
+	// If secondary key provided
+	if(!(isnull(secondary_key) || secondary_key == ""))
+	{
+		try 
+		{
+			sub_map = primary_value.toMap();
+			if(sub_map.containsKey(secondary_key))
+			{
+				return sub_map.get(secondary_key);
+			}
+			else
+			{
+				return null;
+				// secondary key not found
+			}
+		}
+		catch (e)
+		{
+			return null;
+			// primary value not a map
+		}
+	}
+	else
+	{
+		// Only primary key requested
+		return primary_value;
+	}
+}
+else
+{
+	// Not JSON or key missing
+	return null;
+}
+}

@@ -1,0 +1,26 @@
+string standalone.ZFS_Link(String zfs_links,String id)
+{
+split_result = zfs_links.toList("|");
+info split_result;
+for each  rec in split_result
+{
+	info rec;
+	response = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v6/files?id=" + rec
+		type :GET
+		connection:"crm"
+	];
+	info response;
+	response.setParamName("file");
+	response1 = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v6/KYC/" + id + "/Attachments"
+		type :POST
+		files:response
+		connection:"crm"
+	];
+	info response1;
+}
+return "";
+}

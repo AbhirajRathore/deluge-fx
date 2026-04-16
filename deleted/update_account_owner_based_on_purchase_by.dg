@@ -1,0 +1,32 @@
+void automation.update_account_owner_based_on_purchase_by(Int acc_id)
+{
+mp = Map();
+Acc_details = zoho.crm.getRecordById("Accounts",acc_id);
+purchase_by_name = Acc_details.get("purchase_by_name");
+if(purchase_by_name != null)
+{
+	purchase_by_name = Acc_details.get("purchase_by_name").proper();
+	if(purchase_by_name.contains(" "))
+	{
+		purchase_by_name = purchase_by_name.getPrefix(" ");
+	}
+	All_users = zoho.crm.getRecords("users");
+	// 	info "Users count - " + All_users.get("users").size();
+	users_data = All_users.get("users");
+	for each  user in users_data
+	{
+		if(user.get("first_name").contains(purchase_by_name) && user.get("status").contains("active"))
+		{
+			user_id = user.get("id");
+			info user.get("first_name");
+			break;
+		}
+	}
+	if(user_id != null)
+	{
+		mp.put("Owner",user_id);
+		update_owner = zoho.crm.updateRecord("Accounts",acc_id,mp,{"trigger":{"workflow"}});
+		info update_owner;
+	}
+}
+}

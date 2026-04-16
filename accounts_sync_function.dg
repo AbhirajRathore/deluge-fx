@@ -1,0 +1,256 @@
+string standalone.accounts_sync_function()
+{
+try 
+{
+	// ---------- CONFIG ----------
+	loc_map_str = standalone.get_variable_value("config_locations","","");
+	// 	info loc_map_str;
+	loc_list = loc_map_str.toList();
+	// Convert JSON text to List<Map>
+	view_name = "KFK_LEDGER_SYNC_VIEW";
+	page_size = 50;
+	DtoName = "";
+	crm_coql_url = "https://www.zohoapis.com/crm/v4/coql";
+	// 	nivid_ledger_sync_id_list = list();
+	for each  loc in loc_list
+	{
+		try 
+		{
+			code = loc.get("location_code");
+			name = loc.get("location_name");
+			token = loc.get("token");
+			ledger_prefix = loc.get("ledger_prefix");
+			base_api = standalone.get_variable_value("config_api",code,"url");
+			// 1) Get latest synced id from CRM
+			coql = {"select_query":"SELECT id,nivid_ledger_sync_id,Location " + "FROM Accounts " + "WHERE Location = '" + name + "' " + "AND nivid_ledger_sync_id is not null " + "ORDER BY nivid_ledger_sync_id DESC " + "LIMIT 1 OFFSET 0"};
+			crm_resp = invokeurl
+			[
+				url :crm_coql_url
+				type :POST
+				body:coql.toString()
+				connection:"crm"
+			];
+			latest_id = 0;
+			if(crm_resp != null && crm_resp.containsKey("data"))
+			{
+				dl = crm_resp.get("data");
+				if(dl != null && dl.size() > 0)
+				{
+					row = dl.get(0);
+					if(row.get("nivid_ledger_sync_id") != null)
+					{
+						latest_id = row.get("nivid_ledger_sync_id").toLong();
+					}
+				}
+			}
+			// 			info "Latest CRM nivid_ledger_sync_id for " + name + " = " + latest_id;
+			// 			info login_body;
+			// 3) Paging: call again only if the page is "full"
+			auth_hdr = {"accept":"*/*","Authorization":"Bearer " + token};
+			page_no = 1;
+			total_rows = 0;
+			// Use fixed-iteration for Deluge (upper bound safety)
+			iterations = "".leftpad(100).toList("");
+			// up to 50 pages; adjust as needed
+			for each  j in iterations
+			{
+				if(page_no == 1)
+				{
+					criteria = "\"nivid_ledger_sync_id\" > " + latest_id;
+					// 					info criteria;
+					url = base_api + "/CRM/dynamic-query-data" + "?Name=" + view_name + "&Criteria=" + encodeUrl(criteria) + "&PAGE_NO=" + page_no + "&OFFSET=" + page_size;
+				}
+				else
+				{
+					criteria = "\"nivid_ledger_sync_id\" > " + latest_id;
+					url = base_api + "/CRM/dynamic-query-data" + "?Name=" + view_name + "&Criteria=" + encodeUrl(criteria) + "&PAGE_NO=" + page_no + "&DtoName=" + DtoName + "&OFFSET=" + page_size;
+				}
+				//info url;
+				resp = invokeurl
+				[
+					url :url
+					type :GET
+					headers:auth_hdr
+				];
+				// 								info resp;
+				// Defensive checks + unwrap
+				if(resp != null)
+				{
+					data_wrap = resp.get("Data");
+					DtoName = data_wrap.get("DtoName");
+				}
+				else
+				{
+					data_wrap = null;
+				}
+				if(data_wrap != null)
+				{
+					rows = data_wrap.get("Data");
+				}
+				else
+				{
+					rows = null;
+				}
+				if(data_wrap != null && data_wrap.get("Count") != null)
+				{
+					count_on_page = data_wrap.get("Count").toLong();
+				}
+				else
+				{
+					count_on_page = 0;
+				}
+				if(rows == null)
+				{
+					// 					info "Response missing Data for " + name + " page " + page_no + ". Moving to next location.";
+					break;
+				}
+				if(rows.size() == 0)
+				{
+					// 					info "No rows for " + name + " page " + page_no + ". Moving to next location.";
+					break;
+				}
+				// ====== UPSERT/PROCESS logic here using 'rows' ======
+				// build records -> upsert -> handle errors
+				for each  rec in rows
+				{
+					// 					nivid_ledger_sync_id_list.add(rec.get("nivid_ledger_sync_id"));
+					main_map = Map();
+					main_map.put("ledger_code",ledger_prefix + rec.get("ledger_code"));
+					main_map.put("admin_ledger_code",ledger_prefix + rec.get("ledger_code"));
+					main_map.put("nivid_ledger_sync_id",rec.get("nivid_ledger_sync_id"));
+					main_map.put("Account_Name",rec.get("ledger_name"));
+					main_map.put("ledger_display_name",rec.get("ledger_display_name"));
+					if(rec.get("account_type_code") != null)
+					{
+						account_type_code = rec.get("account_type_code").toNumber();
+					}
+					main_map.put("account_type_code",ifNull(account_type_code,""));
+					main_map.put("account_type_name",ifNull(rec.get("account_type_name"),""));
+					if(rec.get("location_code") != null)
+					{
+						location_code = rec.get("location_code").toNumber();
+					}
+					main_map.put("location_code",ifNull(location_code,0));
+					if(rec.get("location_name") != null)
+					{
+						location_name = rec.get("location_name").proper();
+					}
+					main_map.put("Location",name);
+					main_map.put("party_type",ifNull(rec.get("party_type"),""));
+					if(rec.get("ledger_group_code") != null)
+					{
+						ledger_group_code = rec.get("ledger_group_code").toNumber();
+					}
+					main_map.put("ledger_group_code",ifNull(ledger_group_code,""));
+					if(rec.get("active") > 0)
+					{
+						main_map.put("active",true);
+					}
+					else
+					{
+						main_map.put("active",false);
+					}
+					if(rec.get("is_broker") > 0)
+					{
+						main_map.put("is_broker",true);
+					}
+					else
+					{
+						main_map.put("active",false);
+					}
+					if(rec.get("is_import_export") > 0)
+					{
+						main_map.put("is_import_export",true);
+					}
+					else
+					{
+						main_map.put("is_import_export",false);
+					}
+					if(rec.get("purchase_by_name") != null)
+					{
+						purchase_by_name = rec.get("purchase_by_name").proper();
+					}
+					main_map.put("purchase_by_name",ifNull(purchase_by_name,""));
+					main_map.put("office_phone_num",ifNull(rec.get("office_phone_num"),""));
+					main_map.put("office_email",ifNull(rec.get("office_email"),""));
+					main_map.put("office_fax",ifNull(rec.get("office_fax"),""));
+					main_map.put("factory_address",ifNull(rec.get("factory_address"),""));
+					main_map.put("factory_state_name",ifNull(rec.get("factory_state_name"),""));
+					main_map.put("factory_country_code",ifNull(rec.get("factory_country_code"),""));
+					main_map.put("factory_phone_num",ifNull(rec.get("factory_phone_num"),""));
+					main_map.put("factory_email",ifNull(rec.get("factory_email"),""));
+					main_map.put("factory_fax",ifNull(rec.get("factory_fax"),""));
+					main_map.put("bank_name",ifNull(rec.get("bank_name"),""));
+					main_map.put("ifsc_code",ifNull(rec.get("ifsc_code"),""));
+					main_map.put("bank_account_num",ifNull(rec.get("bank_account_num"),""));
+					main_map.put("name_as_per_bank",ifNull(rec.get("name_as_per_bank"),""));
+					if(rec.get("transaction_limit") != null)
+					{
+						transaction_limit = rec.get("transaction_limit").toDecimal();
+					}
+					main_map.put("transaction_limit",ifNull(transaction_limit,0.0));
+					main_map.put("entry_date",ifNull(rec.get("entry_date"),""));
+					main_map.put("customer_info",ifNull(rec.get("customer_info"),""));
+					main_map.put("Customer_Status",ifNull(rec.get("Customer_Status"),""));
+					raw_date = rec.get("last_tran_date");
+					// "2025-11-17"
+					if(raw_date != null)
+					{
+						dt = raw_date.toDate();
+						safe_dt = dt.toString("yyyy-MM-dd") + "T12:00:00";
+						main_map.put("last_tran_date",safe_dt);
+					}
+					else
+					{
+						main_map.put("last_tran_date",null);
+					}
+					// 				main_map.put("last_tran_date",ifNull(rec.get("last_tran_date"),""));
+					main_map.put("Priority",ifNull(rec.get("Priority"),""));
+					main_map.put("terms",ifNull(rec.get("terms"),""));
+					main_map.put("office_address",ifNull(rec.get("office_address"),""));
+					main_map.put("office_state_name",ifNull(rec.get("office_state_name"),""));
+					main_map.put("office_country_name",ifNull(rec.get("office_country_name"),""));
+					// 			info main_map;
+					upsert_acc = zoho.crm.upsert("Accounts",main_map,{"duplicate_check_fields":{"ledger_code"}});
+					// 			upsert_acc = zoho.crm.upsert("Accounts", main_map);
+					// 							info upsert_acc;
+				}
+				// ================================================
+				// Update latest_id using max of this page
+				for each  r in rows
+				{
+					if(r.get("nivid_ledger_sync_id") != null)
+					{
+						nid = r.get("nivid_ledger_sync_id").toLong();
+						latest_id = max(latest_id,nid);
+					}
+				}
+				total_rows = total_rows + rows.size();
+				// 				info "Fetched " + rows.size() + " row(s) for " + name + " (page " + page_no + "); latest_id now " + latest_id;
+				if(count_on_page < page_size || rows.size() < page_size)
+				{
+					// 					info "Page not found (Count=" + count_on_page + ", size=" + rows.size() + "). Moving to next location.";
+					break;
+				}
+				page_no = page_no + 1;
+			}
+			// 		info nivid_ledger_sync_id_list.size();
+			info "Total fetched for " + name + ": " + total_rows;
+		}
+		catch (e)
+		{
+			newline = hextoText("0A");
+			resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Account Sync function failed for " + name + newline + e,"cliq");
+			info "Failed Response: " + e;
+			continue;
+		}
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Account Sync function failed." + newline + e,"cliq");
+	info "Failed Response: " + e;
+}
+return "";
+}

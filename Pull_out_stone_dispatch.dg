@@ -1,0 +1,96 @@
+void automation.Pull_out_stone_dispatch(String StoneIDS,Int recordid)
+{
+//...........Get RFID................
+StoneIDS = StoneIDS.trim();
+StoneIDS = StoneIDS.toList();
+RFID = List();
+serachdatalist = List();
+for each  rec in StoneIDS
+{
+	if(rec.isEmpty() == false)
+	{
+		queryMap = Map();
+		queryMap.put("select_query","select id,rfid,location,Product_Name from Products where Product_Name = '" + rec + "'");
+		GetRFID = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v7/coql"
+			type :POST
+			parameters:queryMap.toString()
+			connection:"zohosandbox"
+		];
+		if(GetRFID.get("data").size() > 0)
+		{
+			ProductDetails = GetRFID.get("data").get(0);
+			if(ProductDetails.get("rfid") != null && ProductDetails.get("location") == "DXB")
+			{
+				RFID.add(ProductDetails.get("rfid"));
+				productmap = Map();
+				productmap.put("Stone_ID",ProductDetails.get("Product_Name"));
+				productmap.put("RFID",ProductDetails.get("rfid"));
+				serachdatalist.add(productmap);
+			}
+		}
+	}
+}
+if(serachdatalist.size() == 0)
+{
+	return;
+}
+resvp = zoho.crm.getRecordById("International_Disptaches",recordid);
+OwnerName = resvp.get("Owner").getJSON("name");
+Account_name = resvp.get("Account_Name").get("name");
+//.............Check In Machine................
+mp = Map();
+mp.put("user_login","kgk");
+currenttime = zoho.currenttime.toString("dd/MM/yyy hh:mm:ss a");
+mp.put("description",Account_name + " " + currenttime + "");
+//...........Test Stones..............
+Stoneidlist = List();
+Stoneidlist.add("100743559769");
+//...........Test Stones..............
+mp.put("listOfTagToPull",RFID);
+heardermap = Map();
+heardermap.put("Authorization","Basic dXNlcnA6RjAwbHBybzBm");
+heardermap.put("Content-Type","application/json");
+CheckData = invokeurl
+[
+	url :"http://94.200.47.34:3000/selections?="
+	type :POST
+	parameters:mp.toString()
+	headers:heardermap
+];
+FoundRfid = List();
+if(CheckData.get("listOfTagToPull").size() > 0)
+{
+	for each  FoundRfid1 in CheckData.get("listOfTagToPull")
+	{
+		FoundRfid.add(FoundRfid1);
+	}
+}
+newNote = Map();
+newNote.put("se_module","International_Disptaches");
+newNote.put("Parent_Id",recordid.toString());
+if(FoundRfid.size() > 0)
+{
+	newNote.put("Note_Title","Stone Found List : RFID");
+	FindStone = "Found Stones : ";
+	Newline = hexToText("0A");
+	for each  FoundRfid1 in FoundRfid
+	{
+		for each  serachdatalist1 in serachdatalist
+		{
+			if(FoundRfid1 == serachdatalist1.get("RFID"))
+			{
+				FindStone = FindStone.toString() + serachdatalist1.get("Stone_ID").toString() + Newline;
+			}
+		}
+	}
+	newNote.put("Note_Content",FindStone.toString());
+}
+else
+{
+	newNote.put("Note_Title","Stone Found List : Error Message");
+	newNote.put("Note_Content",CheckData.toString());
+}
+resp = zoho.crm.createRecord("Notes",newNote);
+}

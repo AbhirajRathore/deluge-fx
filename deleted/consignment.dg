@@ -1,0 +1,151 @@
+string button.consignment(String id)
+{
+resp = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v5/settings/variables"
+	type :get
+	connection:"zohocrm"
+];
+// info resp;
+variables = resp.get("variables");
+for each  variable in variables
+{
+	api_name = variable.get("api_name");
+	if(api_name == "nivid_india_token")
+	{
+		nivid_india_token = variable.get("value");
+	}
+	else if(api_name == "nivid_india_url")
+	{
+		nivid_india_url = variable.get("value");
+	}
+}
+a = invokeurl
+[
+	url :"https://crm.zoho.com/crm/v3/Quotes/" + id
+	type :GET
+	connection:"crm"
+];
+info a;
+Account_Name = a.getJson("data").getJSON("Account_Name").getJSON("name");
+info Account_Name;
+Broker = a.getJson("data").getJSON("Account_Name").getJSON("name");
+info Broker;
+terms = a.getJson("data").getJSON("Terms");
+terms_date = a.getJson("data").getJSON("Term_Date").concat("T00:00:00.000Z");
+Invoice_Type = a.getJson("data").getJSON("Invoice_Type");
+gross_amount = a.getJson("data").getJSON("Amount_in_USD");
+info gross_amount;
+Currency_Type = a.getJson("data").getJSON("Currency_Type");
+Payment_Mode = a.getJson("data").getJSON("Payment_Mode");
+subform = a.getJson("data").getJSON("Quoted_Items");
+// info subform;
+s = list();
+for each  rec in subform
+{
+	Product_Name = rec.getJson("Product_Name").getJSON("name");
+	info Product_Name;
+	Product_id = rec.getJson("Product_Name").getJSON("id");
+	info Product_id;
+	get_prod = zoho.crm.getRecordById("Products",Product_id);
+	// 	info get_prod;
+	list_price = get_prod.getJson("list_total");
+	info list_price;
+	Department = ifnull(get_prod.getJSON("department_code"),0.0);
+	info Department;
+	Department_Name = get_prod.getJson("department_name");
+	info Department_Name;
+	box_name = get_prod.getJson("box_name");
+	info box_name;
+	rate_dollar = ifnull(get_prod.getJson("rate_dollar"),0.0);
+	info rate_dollar;
+	carat = ifnull(rec.getJson("Carat"),0.0);
+	info carat;
+	profit_center = get_prod.getJson("profit_center");
+	info profit_center;
+	mp = Map();
+	mp.put("sale_net_amount",list_price);
+	mp.put("sale_discount_amount",0);
+	mp.put("return_sale_id",null);
+	mp.put("barcode",Product_Name);
+	mp.put("carat",carat);
+	mp.put("amount_dollar",list_price);
+	mp.put("rate_dollar",rate_dollar);
+	if(profit_center == null)
+	{
+		mp.put("profit_center","BBMFG-ST");
+	}
+	else
+	{
+		mp.put("profit_center",profit_center);
+	}
+	s.add(mp);
+	header_data1 = Map();
+	header_data1.put("content-type","application/json");
+	exc = invokeurl
+	[
+		url :nivid_india_url + "/api/nivid/dollar-exchange-rate"
+		type :GET
+		headers:header_data1
+	];
+	info exc;
+	exe = exc.getJson("dollar_exchange_rate");
+	main_map = Map();
+	main_map.put("selected_stones",s);
+	main_map.put("currency_type",Currency_Type);
+	main_map.put("party_name",Account_Name);
+	main_map.put("payment_mode",Payment_Mode);
+	main_map.put("sale_net_amount_dollar",list_price);
+	main_map.put("sale_discount_per",0.0);
+	main_map.put("sale_discount_amount",0.0);
+	main_map.put("broker_name",Broker);
+	main_map.put("exchange_bank_rate",exe);
+	main_map.put("sale_person_name","DIRECT");
+	main_map.put("terms",terms);
+	main_map.put("export_invoice_type",Invoice_Type);
+	main_map.put("payment_date",terms_date);
+	main_map.put("remark","CRM TEST REMARK");
+	info "main_map---->" + main_map;
+}
+header_data = Map();
+header_data.put("Authorization","Bearer " + nivid_india_token);
+header_data.put("Content-Type","application/json");
+resp = invokeurl
+[
+	url :nivid_india_url + "/api/nivid/consignment"
+	type :POST
+	parameters:main_map.toString()
+	headers:header_data
+];
+info "resp......>" + resp;
+stones_data = resp.getJson("stones_data");
+for each  rec3 in stones_data
+{
+	barcode1 = rec3.getJSON("barcode");
+	info barcode1;
+	sale_id = rec3.getJSON("sale_id").toString();
+	info sale_id;
+	search = zoho.crm.searchRecords("Products","(Product_Name:equals:" + barcode1 + ")");
+	info search;
+	record_id = search.getJson("id");
+	info record_id;
+	mp5 = Map();
+	mp5.put("Return_Sales_Id",sale_id);
+	upd = zoho.crm.updateRecord("Products",record_id,mp5);
+	info upd;
+}
+if(resp.contains("ref"))
+{
+	ref = resp.getJson("ref_invoice_no");
+	invoice_number = ref.getPrefix("/").getSuffix("DCKMC");
+	ref_date = resp.getJson("ref_date");
+	mp1 = Map();
+	mp1.put("Ref_Date",ref_date);
+	mp1.put("Ref_No",ref);
+	mp1.put("Invoice_No",invoice_number);
+	info mp;
+	upd = zoho.crm.updateRecord("Quotes",id,mp1);
+	info upd;
+}
+return "Message - " + resp;
+}

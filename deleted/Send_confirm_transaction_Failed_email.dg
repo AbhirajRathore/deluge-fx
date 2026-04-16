@@ -1,0 +1,60 @@
+void automation.Send_confirm_transaction_Failed_email(Int d_id)
+{
+tran = zoho.crm.getRecordById("International_Transaction",d_id);
+owner_email = tran.get("Owner").get("email");
+ref_invoice_no = tran.get("Ref_No");
+Location = tran.get("Location");
+info Location;
+Layout = tran.get("Layout").get("name");
+if(Layout == "Consignment Sale")
+{
+	Transaction_Category = tran.get("Transaction_Category");
+	if(Transaction_Category == null)
+	{
+		info "Transaction Category Can not be Empty!";
+	}
+}
+else
+{
+	Transaction_Category = "Local";
+}
+info "Transaction Category - " + Transaction_Category;
+if(Location == "India")
+{
+	emails_to_send = {{"email":"trupti.malkar@kgkmail.com"},{"email":"abhishek.chauhan@kgkmail.com"},{"email":"aaditya.dhavale@kgkmail.com"},{"email":"rashmin.dungrani@kgkmail.com"}};
+}
+else if(Location == "Dubai")
+{
+	emails_to_send = {{"email":"piyush.mittal@kgkmail.com"},{"email":"Jay.lathigara@kgkmail.com"},{"email":"rashmin.dungrani@kgkmail.com"}};
+}
+// Send_Email ==========================================================
+sendfrom = Map();
+sendfrom.put("email","crm.support@kgkmail.com");
+sendto = Map();
+sendto.put("email",owner_email);
+tolist = List();
+tolist.add(sendto);
+tempmp = Map();
+tempmp.put("id","5870915000008085312");
+Send_Email_mp = Map();
+Send_Email_mp.put("from",sendfrom);
+Send_Email_mp.put("to",tolist);
+Send_Email_mp.put("cc",emails_to_send);
+// Send_Email_mp.put("bcc",emails_to_send);
+Send_Email_mp.put("template",tempmp);
+Send_Email_mp.put("org_email",true);
+Send_Email_dlist = List();
+Send_Email_dlist.add(Send_Email_mp);
+Send_Email_data = Map();
+Send_Email_data.put("data",Send_Email_dlist);
+// 	info "Send_Email_data - " + Send_Email_data;
+Send_Email = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v2.1/International_Transaction/" + d_id + "/actions/send_mail"
+	type :POST
+	parameters:Send_Email_data + ""
+	connection:"zohocrm"
+];
+info "Send_Email - " + Send_Email;
+// Send_Email ==========================================================
+}

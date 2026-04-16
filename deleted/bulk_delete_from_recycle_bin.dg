@@ -1,0 +1,71 @@
+void automation.bulk_delete_from_recycle_bin()
+{
+rec_list = list();
+page = 1;
+page_iterations = "".leftpad(100).toList("");
+for each  test in page_iterations
+{
+	payload = {"group_operator":"AND","group":{{"field":{"api_name":"module"},"comparator":"equal","value":"Accounts"},{"field":{"api_name":"deleted_by"},"comparator":"equal","value":{{"id":"5870915000006905005"}}}}};
+	url_str = "https://www.zohoapis.com/crm/v7/settings/recycle_bin?filters=" + encodeUrl(payload.toString()) + "&page=" + page + "&per_page=200";
+	// info url_str;
+	response = invokeurl
+	[
+		url :url_str
+		type :GET
+		connection:"crm"
+	];
+	recycle_bin = response.get("recycle_bin");
+	if(recycle_bin.size() > 0)
+	{
+		for each  elm in recycle_bin
+		{
+			rec_list.add(elm.get("id"));
+		}
+		page = page + 1;
+	}
+	else
+	{
+		break;
+	}
+}
+// logging
+info "Total ids collected: " + rec_list.size().toString();
+info "Pages requested: " + page.toString();
+if(rec_list.size() > 0)
+{
+	iterations = "".leftpad(1000).toList("");
+	for each  iteration in iterations
+	{
+		if(rec_list.size() == 0)
+		{
+			break;
+		}
+		// 		for less than 100 records ...................
+		else if(rec_list.size() <= 100 && rec_list.size() > 0)
+		{
+			url_str = "https://www.zohoapis.com/crm/v7/settings/recycle_bin?ids=" + encodeUrl(rec_list);
+			response = invokeurl
+			[
+				url :url_str
+				type :DELETE
+				connection:"crm"
+			];
+			// 				info response;
+			break;
+		}
+		else if(rec_list.size() > 100)
+		{
+			newListVar = rec_list.subList(0,100);
+			url_str = "https://www.zohoapis.com/crm/v7/settings/recycle_bin?ids=" + encodeUrl(newListVar);
+			response = invokeurl
+			[
+				url :url_str
+				type :DELETE
+				connection:"crm"
+			];
+			// 				info response;
+			rec_list.removeAll(newListVar);
+		}
+	}
+}
+}

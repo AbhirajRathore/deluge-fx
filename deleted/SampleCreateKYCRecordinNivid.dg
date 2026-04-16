@@ -1,0 +1,195 @@
+string standalone.SampleCreateKYCRecordinNivid(String KYCID)
+{
+NividToken = zoho.crm.getOrgVariable("nivid_dubai_token");
+NividURl = zoho.crm.getOrgVariable("nivid_dubai_url");
+resvp = zoho.crm.getRecordById("KYC",KYCID);
+Nivid_Record_Created = resvp.get("Nivid_Record_Created");
+if(Nivid_Record_Created == false)
+{
+	PARTY_NAME_ = ifnull(resvp.get("Party_Name"),"");
+	COUNTRY_ = ifnull(resvp.get("KYC_Country"),"");
+	STATE_ = ifnull(resvp.get("Contact_Address_State"),"");
+	PARTY_TYPE_ = ifnull(resvp.get("Party_Type"),"");
+	BUS_CONSTITUTION_ = ifnull(resvp.get("Business_Constitution"),"");
+	BUS_NATURE_ACT_ = ifnull(resvp.get("Nature_of_Business_Activity"),"");
+	PEROMO_NAME_1_ = ifnull(resvp.get("Association_Organisation"),null);
+	PROMO_ADD_1_ = null;
+	PEROMO_NAME_2_ = ifnull(resvp.get("Association_Organisation_2"),null);
+	PROMO_ADD_2_ = null;
+	VAT_TIN_ = ifnull(resvp.get("TRN_VAT_Number"),null);
+	BANKER_NAME_ = ifnull(resvp.get("Banker_s_name"),null);
+	AC_NO_ = ifnull(resvp.get("account_number"),null);
+	IFSC_CODE_ = ifnull(resvp.get("ifsc_code"),null);
+	BANK_ADD_ = ifnull(resvp.get("bank_address"),null);
+	FAX_NO_1_ = ifnull(resvp.get("Fax_Number"),null);
+	USERID_ = ifnull(resvp.get("User_ID"),null);
+	MODIFIEDTIME_ = null;
+	IPADDRESS_ = "192.168.1.5555";
+	ADDRESSTYPE_ = "Billing";
+	ADDRESS_ = ifnull(resvp.get("Contact_Address_City"),null);
+	PINCODE_ = ifnull(resvp.get("Contact_Address_Zip_Code"),null);
+	CITYNAME_ = ifnull(resvp.get("Contact_Address_City"),null);
+	IS_KYC_ = "Y";
+	COMPLIANCE_DATE_ = ifnull(resvp.get("COMPLIANCE_DATE"),null);
+	if(COMPLIANCE_DATE_ != null)
+	{
+		COMPLIANCE_DATE_ = COMPLIANCE_DATE_.toString("yyyy-MM-dd");
+	}
+	COMPLIANCE_DATE_ = COMPLIANCE_DATE_;
+	KYC_Expiry_Date = ifnull(resvp.get("KYC_Expiry_Date"),null);
+	if(KYC_Expiry_Date != null)
+	{
+		KYC_Expiry_Date = KYC_Expiry_Date.toString("yyyy-MM-dd");
+	}
+	KYC_EXPIRY_DATE_ = KYC_Expiry_Date;
+	KYC_TRN_ = null;
+	TRADE_LICENSE_NO_ = ifnull(resvp.get("Business_Registration_Trade_License_number"),null);
+	TRADE_LICENSE_EXP_DATE = ifnull(resvp.get("TRADE_LICENSE_EXP_DATE"),null);
+	if(TRADE_LICENSE_EXP_DATE != null)
+	{
+		TRADE_LICENSE_EXP_DATE = TRADE_LICENSE_EXP_DATE.toString("yyyy-MM-dd");
+	}
+	TRADE_LICENSE_EXP_DATE_ = TRADE_LICENSE_EXP_DATE;
+	PASSPORT1_NO_ = ifnull(resvp.get("PASSPORT1_NO"),null);
+	PASSPORT1_EXP_DATE = ifnull(resvp.get("PASSPORT1_EXP_DATE"),null);
+	if(PASSPORT1_EXP_DATE != null)
+	{
+		PASSPORT1_EXP_DATE = PASSPORT1_EXP_DATE.toString("yyyy-MM-dd");
+	}
+	PASSPORT1_EXP_DATE_ = PASSPORT1_EXP_DATE;
+	PASSPORT2_NO_ = ifnull(resvp.get("PASSPORT2_NO"),null);
+	PASSPORT2_EXP_DATE = ifnull(resvp.get("PASSPORT2_EXP_DATE"),null);
+	if(PASSPORT2_EXP_DATE != null)
+	{
+		PASSPORT2_EXP_DATE = PASSPORT2_EXP_DATE.toString("yyyy-MM-dd");
+	}
+	PASSPORT2_EXP_DATE_ = PASSPORT2_EXP_DATE;
+	OTHER_NO_ = null;
+	OTHER_EXP_DATE_ = null;
+	REGI_EXTRACT_ = null;
+	KYC_FORM_DECL_ = null;
+	PAN_ = null;
+	AFFILATED_ = null;
+	WEBSITE_ = ifnull(resvp.get("Website"),null);
+	REL_PERIOD_ = null;
+	CST_TIN_ = null;
+	GST_NO_ = null;
+	ORG_1_ = ifnull(resvp.get("Organization_Name"),null);
+	MEM_DETAILS_1_ = null;
+	CON_PERSON_1_ = null;
+	MARKET_REF_ = null;
+	ORG_2_ = ifnull(resvp.get("Association_Organisation_2"),"");
+	MEM_DETAILS_2_ = "";
+	EMAIL_1_ = ifnull(resvp.get("company_email"),null);
+	EMAIL_2_ = ifnull(resvp.get("Company_Email_Address_2"),null);
+	ORG_3_ = null;
+	MEM_DETAILS_3_ = null;
+	PHONE_NO_1_ = ifnull(resvp.get("company_mobile_number"),null);
+	PHONE_NO_2_ = ifnull(resvp.get("Company_Mobile_Number_2"),null);
+	MOBILE_NO_1_ = null;
+	MOBILE_NO_2_ = null;
+	KYC_PERSON_ = ifnull(resvp.get("KYC_Person"),null);
+	KYC_STATUS_ = ifnull(resvp.get("KYC_Status"),"Pending");
+	KYC_REASONS_ = null;
+	REMARKS_1_ = ifnull(resvp.get("Any_other_Details_Remarks"),null);
+	REMARKS_2_ = ifnull(resvp.get("Any_other_Details_Remarks_2"),null);
+	FILENAME_ = null;
+	GST_DATE_ = null;
+	BUS_NATURE_ACT_OTH_ = "";
+	//..........................................................................
+	CreateKYCMap = Map();
+	CreateKYCMap.put("PARTY_NAME_",PARTY_NAME_);
+	CreateKYCMap.put("PARTY_TYPE_",PARTY_TYPE_);
+	CreateKYCMap.put("COUNTRY_",COUNTRY_);
+	CreateKYCMap.put("STATE_",STATE_);
+	CreateKYCMap.put("PARTY_TYPE_",PARTY_TYPE_);
+	CreateKYCMap.put("BUS_CONSTITUTION_",BUS_CONSTITUTION_);
+	CreateKYCMap.put("BUS_NATURE_ACT_",BUS_NATURE_ACT_);
+	CreateKYCMap.put("PEROMO_NAME_1_",PEROMO_NAME_1_);
+	CreateKYCMap.put("PROMO_ADD_1_",PROMO_ADD_1_);
+	CreateKYCMap.put("PEROMO_NAME_2_",PEROMO_NAME_2_);
+	CreateKYCMap.put("PROMO_ADD_2_",PROMO_ADD_2_);
+	CreateKYCMap.put("VAT_TIN_",VAT_TIN_);
+	CreateKYCMap.put("BANKER_NAME_",BANKER_NAME_);
+	CreateKYCMap.put("AC_NO_",AC_NO_);
+	CreateKYCMap.put("IFSC_CODE_",IFSC_CODE_);
+	CreateKYCMap.put("BANK_ADD_",BANK_ADD_);
+	CreateKYCMap.put("FAX_NO_1_",FAX_NO_1_);
+	CreateKYCMap.put("USERID_",FAX_NO_1_);
+	CreateKYCMap.put("MODIFIEDTIME_",MODIFIEDTIME_);
+	CreateKYCMap.put("IPADDRESS_",MODIFIEDTIME_);
+	CreateKYCMap.put("ADDRESSTYPE_",ADDRESSTYPE_);
+	CreateKYCMap.put("ADDRESS_",ADDRESS_);
+	CreateKYCMap.put("PINCODE_",PINCODE_);
+	CreateKYCMap.put("CITYNAME_",PINCODE_);
+	CreateKYCMap.put("IS_KYC_",IS_KYC_);
+	CreateKYCMap.put("COMPLIANCE_DATE_",COMPLIANCE_DATE_);
+	CreateKYCMap.put("KYC_EXPIRY_DATE_",KYC_EXPIRY_DATE_);
+	CreateKYCMap.put("KYC_TRN_",KYC_TRN_);
+	CreateKYCMap.put("TRADE_LICENSE_NO_",TRADE_LICENSE_NO_);
+	CreateKYCMap.put("TRADE_LICENSE_EXP_DATE_",TRADE_LICENSE_EXP_DATE_);
+	CreateKYCMap.put("PASSPORT1_NO_",PASSPORT1_NO_);
+	CreateKYCMap.put("PASSPORT1_EXP_DATE_",PASSPORT1_EXP_DATE_);
+	CreateKYCMap.put("PASSPORT2_NO_",PASSPORT2_NO_);
+	CreateKYCMap.put("PASSPORT2_EXP_DATE_",PASSPORT2_EXP_DATE_);
+	CreateKYCMap.put("OTHER_NO_",OTHER_NO_);
+	CreateKYCMap.put("OTHER_EXP_DATE_",OTHER_EXP_DATE_);
+	CreateKYCMap.put("REGI_EXTRACT_",REGI_EXTRACT_);
+	CreateKYCMap.put("KYC_FORM_DECL_",KYC_FORM_DECL_);
+	CreateKYCMap.put("PAN_",PAN_);
+	CreateKYCMap.put("AFFILATED_",AFFILATED_);
+	CreateKYCMap.put("WEBSITE_",WEBSITE_);
+	CreateKYCMap.put("REL_PERIOD_",REL_PERIOD_);
+	CreateKYCMap.put("CST_TIN_",CST_TIN_);
+	CreateKYCMap.put("GST_NO_",CST_TIN_);
+	CreateKYCMap.put("ORG_1_",ORG_1_);
+	CreateKYCMap.put("CST_TIN_",CST_TIN_);
+	CreateKYCMap.put("MEM_DETAILS_1_",MEM_DETAILS_1_);
+	CreateKYCMap.put("CON_PERSON_1_",CON_PERSON_1_);
+	CreateKYCMap.put("MARKET_REF_",MARKET_REF_);
+	CreateKYCMap.put("ORG_2_",ORG_2_);
+	CreateKYCMap.put("MEM_DETAILS_2_",MEM_DETAILS_2_);
+	CreateKYCMap.put("EMAIL_1_",EMAIL_1_);
+	CreateKYCMap.put("EMAIL_2_",EMAIL_1_);
+	CreateKYCMap.put("ORG_3_",ORG_3_);
+	CreateKYCMap.put("MEM_DETAILS_3_",MEM_DETAILS_3_);
+	CreateKYCMap.put("PHONE_NO_1_",PHONE_NO_1_);
+	CreateKYCMap.put("PHONE_NO_2_",PHONE_NO_2_);
+	CreateKYCMap.put("MOBILE_NO_1_",MOBILE_NO_1_);
+	CreateKYCMap.put("MOBILE_NO_2_",MOBILE_NO_1_);
+	CreateKYCMap.put("KYC_PERSON_",KYC_PERSON_);
+	CreateKYCMap.put("KYC_STATUS_",KYC_STATUS_);
+	CreateKYCMap.put("KYC_REASONS_",KYC_REASONS_);
+	CreateKYCMap.put("REMARKS_1_",KYC_REASONS_);
+	CreateKYCMap.put("REMARKS_2_",REMARKS_2_);
+	CreateKYCMap.put("FILENAME_",FILENAME_);
+	CreateKYCMap.put("GST_DATE_",GST_DATE_);
+	CreateKYCMap.put("BUS_NATURE_ACT_OTH_",BUS_NATURE_ACT_OTH_);
+	heardermap = Map();
+	heardermap.put("content-type","application/json");
+	heardermap.put("Authorization","Bearer " + NividToken);
+	CreateKYCNIvid = invokeurl
+	[
+		url :NividURl + "/api/nivid/kyc"
+		type :POST
+		parameters:CreateKYCMap.toString()
+		headers:heardermap
+	];
+	if(CreateKYCNIvid.get("result") == "SUCCESS")
+	{
+		Messgae = "KYC is Created";
+		updatemap = Map();
+		updatemap.put("Nivid_Record_Created",true);
+		resvp1 = zoho.crm.updateRecord("KYC",KYCID,updatemap);
+	}
+	else
+	{
+		Messgae = CreateKYCNIvid;
+	}
+}
+else
+{
+	Messgae = "Record Already Created!";
+}
+return Messgae;
+}

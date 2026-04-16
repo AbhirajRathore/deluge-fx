@@ -1,0 +1,26 @@
+void automation.send_test_whatsapp()
+{
+// Get Journey Key
+// 	============================
+// 	response = invokeUrl [
+// 	url: "https://marketingautomation.zoho.com/api/v1/journeys"
+// 	type: GET
+// 	connection: "zoho_ma"
+// 	];
+// 	info response;
+// ======================
+mp = Map();
+mp.put("lead_email","unmeshdesai98@gmail.com");
+mp.put("triggerkey","3z439db5ff64855f437c9d2b598f58bb27e1791080da9124d9b0cb30969b40cea8");
+mp.put("listkey","3z013f5a68238b408dd677764b2d133557571fccf3c3e22cc809dc09ab20ed7edd");
+details = Map();
+details.put("details",mp);
+response = invokeurl
+[
+	url :"https://marketingautomation.zoho.com/api/v1/journeys/3z439db5ff64855f437c9d2b598f58bb27421f3460f743d397b0432af155af9cc3/action/trigger"
+	type :POST
+	parameters:details
+	connection:"zoho_ma"
+];
+info response;
+}

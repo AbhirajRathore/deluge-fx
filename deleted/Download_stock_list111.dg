@@ -1,0 +1,11 @@
+void automation.Download_stock_list111()
+{
+resp = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v7/settings/custom_views/5870915000033215023?module=Products"
+	type :GET
+	connection:"crm"
+];
+info resp;
+// info "Download_stock_list";
+}

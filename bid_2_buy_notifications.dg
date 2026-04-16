@@ -1,0 +1,192 @@
+void schedule.bid_2_buy_notifications()
+{
+try 
+{
+	medusa_token = standalone.get_variable_value("config_api","medusa","token");
+	medusa_url = standalone.get_variable_value("config_api","medusa","url");
+	crm_env_url = standalone.get_variable_value("config_api","crm_env","url");
+	onesignal_url = standalone.get_variable_value("config_api","onesignal","url");
+	onesignal_token = standalone.get_variable_value("config_api","onesignal","token");
+	today_date = now.toString("yyyy-MM-dd'T'HH:mm:ss","IST").toDate();
+	// 		today_date = toDate("05-jul-2025", "dd-MMM-yyyy");
+	info "Todays Date: " + today_date;
+	now_hour = now.toString("yyyy-MM-dd'T'HH:mm:ss","IST").toTime("yyyy-MM-dd'T'HH:mm:ss").getHour();
+	// 		now_hour = 14;
+	info "Now Hours: " + now_hour;
+	// Step 1: Find the first Tuesday between 5th and 11th of the month
+	first_tuesday = null;
+	Send_notification = "No";
+	day_list = {5,6,7,8,9,10,11};
+	for each  d in day_list
+	{
+		potential_date = today_date.toStartOfMonth().addDay(d - 1);
+		if(potential_date.getDayOfWeek() == 3)
+		{
+			info potential_date;
+			// 2 = Tuesday
+			first_tuesday = potential_date;
+			break;
+		}
+	}
+	info "Bid 2 Buy Date: " + potential_date;
+	// info first_tuesday;
+	if(first_tuesday != null)
+	{
+		day_diff = today_date.daysBetween(first_tuesday);
+		info "Day Diff: " + day_diff;
+		// Can be negative, 0, or positive
+		day_of_week = today_date.getDayOfWeek();
+		info "Day of Week: " + day_of_week;
+		// 1=Sun ... 7=Sat
+		// 1. "Coming Soon" – Thu to Sun before first Tuesday – 2:30 PM
+		if(day_diff > 0 && (day_of_week == 5 || day_of_week == 6 || day_of_week == 7 || day_of_week == 1) && now_hour == 14)
+		{
+			// Send push notification: "Bid to Buy - Coming Soon"
+			info "Push: Bid to Buy - Coming Soon";
+			Send_notification = "Yes";
+			targetPage = "bid-to-buy:activeBid";
+			template_id = "afbeb20d-9c06-471c-a2dc-ce0a075ac7b5";
+		}
+		// 2. "We Are Live" – First Tuesday – 1 PM
+		if(today_date == first_tuesday && now_hour == 13)
+		{
+			// Send push notification: "Bid to Buy - We Are Live"
+			info "Push: Bid to Buy - We Are Live";
+			Send_notification = "Yes";
+			targetPage = "bid-to-buy:activeBid";
+			template_id = "a2e4a2b7-e7ee-470d-a6f6-1e432548e908";
+		}
+		// 4. "24 Hours Left" – Wednesday – 3:00 PM
+		if(today_date == first_tuesday.addDay(1) && now_hour == 15)
+		{
+			// Send push notification: "Bid to Buy - 24 Hours Left"
+			info "Push: Bid to Buy - 24 Hours Left";
+			Send_notification = "Yes";
+			targetPage = "bid-to-buy:activeBid";
+			template_id = "2b0aedf5-73fe-4394-8824-3bdfe0f119de";
+		}
+		// 5. "Few Hours to Go" – Thursday – 11:00 AM
+		if(today_date == first_tuesday.addDay(2) && now_hour == 11)
+		{
+			// Send push notification: "Bid to Buy - Few Hours to Go"
+			info "Push: Bid to Buy - Few Hours to Go";
+			Send_notification = "Yes";
+			targetPage = "bid-to-buy:activeBid";
+			template_id = "d584e167-78be-4835-bec1-cd267b2cbb9b";
+		}
+		// 6. "30 mins to go" – Thursday – 2:30 PM
+		if(today_date == first_tuesday.addDay(2) && now_hour == 14)
+		{
+			// Send push notification: "Bid to Buy - 30 Minutes Left"
+			info "Push: Bid to Buy - 30 Minutes Left";
+			Send_notification = "Yes";
+			targetPage = "bid-to-buy:activeBid";
+			template_id = "2f4190d0-9211-4573-85b4-56cd25394e79";
+		}
+	}
+	info "Send Notification?: " + Send_notification;
+	if(Send_notification == "Yes")
+	{
+		// 		
+		user_id_list = list();
+		// user_id_list = ["cus_01JKFJXAV2WJF5KGWXJ04S5BXM"];
+		device_id_list = list();
+		more_records = true;
+		numrecords = 0;
+		// Start to search contacts with user_id
+		iterations = "".leftpad(5 - 1).toList("");
+		for each  iteration in iterations
+		{
+			if(more_records)
+			{
+				queryMap = Map();
+				queryMap.put("select_query","select id, user_id, Email from Contacts where user_id != '' limit 2000 offset " + numrecords);
+				response = invokeurl
+				[
+					url :"https://www.zohoapis.com/crm/v7/coql"
+					type :POST
+					parameters:queryMap.toString()
+					connection:"crm"
+				];
+				// 							info response;
+				more_records = response.get("info").get("more_records");
+				data = response.get("data");
+				if(data.size() > 0)
+				{
+					for each  con in data
+					{
+						if(con.get("user_id") != null)
+						{
+							user_id_list.add(con.get("user_id").toString());
+						}
+					}
+				}
+				numrecords = numrecords + data.size();
+			}
+			else
+			{
+				break;
+			}
+		}
+		param = Map();
+		param.put("customerIds",user_id_list);
+		header = Map();
+		header.put("Content-Type","application/json");
+		header.put("Authorization","Bearer " + medusa_token);
+		get_device_id = invokeurl
+		[
+			url :medusa_url + "public/customers-device-uuid"
+			type :POST
+			parameters:param.toString()
+			headers:header.toMap()
+		];
+		// 	info  get_device_id ;
+		data = get_device_id.get("data");
+		if(data.size() > 0)
+		{
+			for each  cus in data
+			{
+				device_uuid = cus.get("device_uuid");
+				if(device_uuid != "")
+				{
+					device_id_list.add(device_uuid);
+				}
+			}
+		}
+		info "Number of Record Searched - " + numrecords;
+		info "User Id size - " + user_id_list.size();
+		info "Device ID Size - " + device_id_list.size();
+		// 	<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+		// Send Notification 
+		// 	---------------------------------------------------------
+		headers_mp = Map();
+		headers_mp.put("Authorization","Basic " + onesignal_token);
+		headers_mp.put("accept","application/json");
+		headers_mp.put("Content-type","application/json");
+		param_mp = Map();
+		param_mp.put("app_id","378b2db1-01ba-4f45-b8cf-9500ea88056b");
+		param_mp.put("include_player_ids",device_id_list);
+		param_mp.put("mutable_content",true);
+		param_mp.put("template_id",template_id);
+		param_mp.put("data",{"targetPage":targetPage});
+		response = invokeurl
+		[
+			url :onesignal_url
+			type :POST
+			parameters:param_mp.toString()
+			headers:headers_mp
+		];
+		info response;
+	}
+	else
+	{
+		info "Send No Notification";
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Bid 2 Buy One Signal Notification sending failed." + newline + e,"cliq");
+	// 	info resp;
+}
+}

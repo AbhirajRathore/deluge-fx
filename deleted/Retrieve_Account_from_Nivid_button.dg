@@ -1,0 +1,48 @@
+string button.Retrieve_Account_from_Nivid_button(String acc_id)
+{
+Account_details = zoho.crm.getRecordById("Accounts",acc_id);
+Location = Account_details.get("Location");
+ledger_code = Account_details.get("ledger_code");
+if(ledger_code == null)
+{
+	return "No Ledger Code Found";
+}
+loc_map_str = standalone.get_variable_value("config_locations","","");
+loc_list = loc_map_str.toList();
+for each  loc in loc_list
+{
+	loc_name = loc.get("location_name");
+	if(Location = loc_name)
+	{
+		ledger_prefix = loc.get("ledger_prefix");
+		ledger_code = ledger_code.getPrefix(ledger_prefix);
+		stone_loc = loc.get("location_code");
+		nivid_url = standalone.get_variable_value("config_api",stone_loc,"url");
+		nivid_token = standalone.get_variable_value("config_api",stone_loc,"token");
+	}
+}
+if(nivid_url == null)
+{
+	return "Location Not Found!";
+}
+info "Ledger Code - " + ledger_code;
+info "Location - " + Location;
+info "nivid_url - " + nivid_url;
+header_data = Map();
+header_data.put("Authorization","Bearer " + nivid_token);
+header_data.put("Content-Type","application/json");
+try 
+{
+	resp = invokeurl
+	[
+		url :nivid_url + "/api/experiment/generate-accounts-events?ledger_codes=" + ledger_code
+		type :POST
+		headers:header_data
+	];
+}
+catch (e)
+{
+	return "NIVID API is taking longer time, your transaction will be done soon! if not please retry";
+}
+return resp;
+}

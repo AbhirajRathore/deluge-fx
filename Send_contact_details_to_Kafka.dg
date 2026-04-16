@@ -1,0 +1,33 @@
+void automation.Send_contact_details_to_Kafka(Int con_id)
+{
+contact_details = zoho.crm.getRecordById("Contacts",con_id);
+user_id = contact_details.get("user_id");
+if(user_id != null)
+{
+	info user_id;
+	kafka_token = standalone.get_variable_value("config_api","kafka","token");
+	kafka_url = standalone.get_variable_value("config_api","kafka","url");
+	first_name = ifNull(contact_details.get("First_Name"),"");
+	last_name = ifNull(contact_details.get("Last_Name"),"");
+	Email = contact_details.get("Email");
+	Phone = contact_details.get("Phone");
+	mp = Map();
+	mp.put("user_id",user_id);
+	mp.put("contact_id",con_id.toString());
+	mp.put("First_Name",first_name);
+	mp.put("Last_Name",last_name);
+	mp.put("Email",Email);
+	mp.put("Phone",Phone);
+	header = Map();
+	header.put("Authorization","Bearer " + kafka_token);
+	header.put("Content-Type","application/json");
+	response = invokeurl
+	[
+		url :kafka_url + "/api/crm/contact-details"
+		type :POST
+		parameters:mp.toString()
+		headers:header
+	];
+	info response;
+}
+}

@@ -1,0 +1,4 @@
+string button.sync_accounts_buttons()
+{
+return standalone.accounts_sync_function();
+}

@@ -1,0 +1,203 @@
+string standalone.cart_generateExcelAndSendEmail(String cartId,String Email,String temp_id,String currentStage,String contact_id)
+{
+// ---------- FETCH STONES ----------
+stones_in_cart = list();
+nextToken = 0;
+pageSize = 200;
+iterations1 = "".leftpad(50).toList("");
+for each  i1 in iterations1
+{
+	queryMap = Map();
+	// 	crm_query = "select id, Stones_Listed.id from Connection where Cart_Listed = '" + cartId + "' limit " + pageSize + " offset " + nextToken;
+	crm_query = "select id, Stones_Listed.id from Connection where Cart_Listed = '" + cartId + "'  and Stones_Listed.tran_status = 'STOCK' limit " + pageSize + " offset " + nextToken;
+	queryMap.put("select_query",crm_query);
+	stones = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v3/coql"
+		type :POST
+		parameters:queryMap.toString()
+		connection:"crm"
+	];
+	if(stones == null || stones == "")
+	{
+		info "Cart empty, exiting flow";
+		break;
+	}
+	stones_in_cart.add(stones.get("data"));
+	if(stones.containsKey("info") && stones.get("info").get("more_records") == true)
+	{
+		nextToken = nextToken + pageSize;
+	}
+	else
+	{
+		break;
+	}
+}
+if(stones_in_cart == null || stones_in_cart.isEmpty())
+{
+	info "No STOCK stones found for Cart: " + cartId;
+	return "No Stones Found";
+}
+// info "Stone Size: " + stones_in_cart.get(0).size();
+// 		add contact to Journey
+// =======================================
+triggerkey = "3zacd5392472c02dabdeea6918e684fc0bbb2e767184426467235e30d3c8cbfe5f";
+journey_id = "3zacd5392472c02dabdeea6918e684fc0bfb37ecac30c33195b00090ed083b9cc8";
+mp = Map();
+mp.put("lead_email",Email);
+mp.put("triggerkey",triggerkey);
+mp.put("listkey","3z8a53b4677909f07a4c43ad6ff2f3207f15d66ddcde5ec265e8f51facb55d7ff3");
+details = Map();
+details.put("details",mp);
+response = invokeurl
+[
+	url :"https://marketingautomation.zoho.com/api/v1/journeys/" + journey_id + "/action/trigger"
+	type :POST
+	parameters:details
+	connection:"zoho_ma"
+];
+// info response;
+// 		Update Contact
+// =======================================
+mp = Map();
+mp.put("Followup_Stage",currentStage);
+mp.put("Stones_in_Carts",stones_in_cart.get(0).size());
+update_contact = zoho.crm.updateRecord("Contacts",contact_id,mp,{"trigger":{"workflow"}});
+// create_workbook ============================================================
+paramMap = Map();
+paramMap.put('method','workbook.createfromtemplate');
+paramMap.put('resource_id','4mt8v24b9cab8d3374215bd93b178f497b473');
+paramMap.put('workbook_name',"Stones_in_cart - " + today.tostring("MM-dd-yyyy"));
+paramMap.put('parent_id','h1ru0197fabc9ddc3454e862386f01bd5730e');
+create_workbook = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/createfromtemplate"
+	type :POST
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+// 	info create_workbook;
+workbook_name = create_workbook.get("workbook_name");
+resource_id = create_workbook.get("resource_id");
+workbook_url = create_workbook.get("workbook_url");
+// info "Email Attachment url - " + workbook_url;
+// info workbook_url;
+// 	create_workbook END ========================================================================
+// 	Row List ==================================================
+dataList = List();
+n = 1;
+for each  stone in stones.get("data")
+{
+	Product_id = stone.get("Stones_Listed.id");
+	prod_details = zoho.crm.getRecordById("Products",Product_id);
+	Product_name = ifNull(prod_details.get("Product_Name"),"");
+	carat = ifNull(prod_details.get("carat"),0.0);
+	color = ifNull(prod_details.get("color"),"");
+	dataMap1 = Map();
+	dataMap1.put('SrNo',n);
+	dataMap1.put('Stock No.',Product_name);
+	dataMap1.put('Location',ifNull(prod_details.get("location"),""));
+	dataMap1.put('Lab',ifNull(prod_details.get("lab"),""));
+	dataMap1.put('Shape',ifNull(prod_details.get("shape"),""));
+	dataMap1.put('Carats',ifNull(prod_details.get("carat"),0.0));
+	dataMap1.put('Color',ifNull(prod_details.get("color"),""));
+	dataMap1.put('Clarity',ifNull(prod_details.get("clarity"),""));
+	dataMap1.put('Cut',ifNull(prod_details.get("cut"),""));
+	dataMap1.put('Polish',ifNull(prod_details.get("polish"),""));
+	dataMap1.put('Symmetry',ifNull(prod_details.get("symmetry"),""));
+	dataMap1.put('Fluorescence',ifNull(prod_details.get("fluorescence"),""));
+	dataMap1.put('Table%',ifNull(prod_details.get("table"),0.0));
+	dataMap1.put('Depth%',ifNull(prod_details.get("depth_percentage"),0.0));
+	dataMap1.put('Certificate Number',ifNull(prod_details.get("certificate_no"),""));
+	dataMap1.put('Ratio',ifNull(prod_details.get("ratio"),""));
+	measurement = ifNull(prod_details.get("length"),0.0) + " - " + ifNull(prod_details.get("width"),0.0) + " - " + ifNull(prod_details.get("depth"),0.0);
+	dataMap1.put('Measurements(L*W*D)',measurement);
+	dataMap1.put('Milky',ifNull(prod_details.get("milky"),""));
+	dataMap1.put('Report Comments',ifNull(prod_details.get("lab_comments"),""));
+	dataMap1.put('Key to Symbols',ifNull(prod_details.get("key_to_symbols"),""));
+	dataMap1.put('Laser Inscription',ifNull(prod_details.get("inscription"),""));
+	dataMap1.put('Public URL',ifNull(prod_details.get("dna_link"),""));
+	dataList.add(dataMap1);
+	n = n + 1;
+}
+// 	Row List ==================================================
+paramMap = Map();
+paramMap.put('method','worksheet.jsondata.append');
+paramMap.put('worksheet_name','Sheet1');
+paramMap.put('header_row',1);
+paramMap.put('json_data',dataList);
+add_rows = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/" + resource_id
+	type :POST
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+// 	info "Workbook Status - " + add_rows;
+// Add Rows to Sheet END =============================================================================
+// Download workbook =============================================================================
+paramMap = Map();
+paramMap.put('method','workbook.download');
+paramMap.put('format','xlsx');
+paramMap.put('worksheet_name','sheet1');
+dataMap = Map();
+dataMap.put('print_type',"SHEET");
+dataMap.put('margin_left',0.5);
+dataMap.put('margin_right',0.5);
+dataMap.put('page_order',"overDown");
+dataMap.put('add_chart',true);
+paramMap.put('page_settings',dataMap);
+file_response = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/download/" + resource_id
+	type :POST
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+// 	info file_response;
+// 	============================================
+file_response.setParamName("file");
+response = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v5/files"
+	type :POST
+	files:file_response
+	connection:"crm"
+];
+// info response;
+fid = response.get("data").get(0).get("details").get("id");
+// info "FID - " + fid;
+attachmap = Map();
+attachmap.put("id",fid);
+alist = List();
+alist.add(attachmap);
+// 	Send Email ================================
+sendfrom = Map();
+sendfrom.put("email","crm.support@kgkmail.com");
+sendto = Map();
+sendto.put("email",Email);
+tolist = List();
+tolist.add(sendto);
+tempmp = Map();
+tempmp.put("id",temp_id);
+Send_Email_mp = Map();
+Send_Email_mp.put("from",sendfrom);
+Send_Email_mp.put("to",tolist);
+Send_Email_mp.put("template",tempmp);
+Send_Email_mp.put("attachments",alist);
+Send_Email_mp.put("org_email",true);
+Send_Email_dlist = List();
+Send_Email_dlist.add(Send_Email_mp);
+Send_Email_data = Map();
+Send_Email_data.put("data",Send_Email_dlist);
+// info "Send_Email_data - " + Send_Email_data;
+Client_Send_Email = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v2.1/Carts/" + cartId + "/actions/send_mail"
+	type :POST
+	parameters:Send_Email_data + ""
+	connection:"zohocrm"
+];
+// info "Send_Email - " + Client_Send_Email;
+return "";
+}

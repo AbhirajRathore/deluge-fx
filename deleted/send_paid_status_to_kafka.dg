@@ -1,0 +1,35 @@
+void automation.send_paid_status_to_kafka(Int Deal_id)
+{
+kafka_url = standalone.get_variable_value("config_api","kafka","url");
+kafka_token = standalone.get_variable_value("config_api","kafka","token");
+deal_details = zoho.crm.getRecordById("Deals",Deal_id);
+kafka_event_list = list();
+Contact_Name_id = deal_details.get("Contact_Name").get("id");
+if(deal_details.get("order_id") != null)
+{
+	order_id = deal_details.get("order_id");
+}
+else
+{
+	order_id = Deal_id;
+}
+contact_name = deal_details.get("Contact_Name").get("name");
+kafka_field_map = Map();
+kafka_field_map.put("contact_id",Contact_Name_id);
+kafka_field_map.put("order_id",order_id.toString());
+kafka_field_map.put("contact_name",contact_name);
+kafka_field_map.put("stones",kafka_event_list);
+kafka_field_map.put("order_type","PAID");
+kafka_field_map.put("ref_invoice_num",null);
+kafka_field_map.put("location","India");
+kafka_header_data = Map();
+kafka_header_data.put("Authorization","Bearer " + kafka_token);
+kafka_header_data.put("Content-Type","application/json");
+kafka_event = invokeurl
+[
+	url :kafka_url + "/api/crm/order"
+	type :POST
+	parameters:kafka_field_map.toString()
+	headers:kafka_header_data
+];
+}

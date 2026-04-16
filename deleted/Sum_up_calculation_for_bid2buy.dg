@@ -1,0 +1,30 @@
+void automation.Sum_up_calculation_for_bid2buy(String crmAPIRequest)
+{
+CRMResponses = crmAPIRequest;
+dispatch_id = CRMResponses.getJson("params").getJSON("dispatch_id");
+iterations = "".leftpad(20 - 1).toList("");
+pageCounter = 1;
+numRecords = 0;
+deal_Stones_list = List();
+for each  iteration in iterations
+{
+	page = pageCounter;
+	perPage = 200;
+	resp = zoho.crm.getRelatedRecords("Bid2Buy_X_Inventory","Bid2Buy",dispatch_id,page,perPage);
+	info resp.size();
+	if(resp.isEmpty())
+	{
+		break;
+	}
+	else
+	{
+		pageCounter = pageCounter + 1;
+		numRecords = numRecords + resp.size();
+	}
+}
+info "numRecords - " + numRecords;
+mp = Map();
+mp.put("Total_Stone_Count",numRecords);
+update_dispatach = zoho.crm.updateRecord("Bid2Buy",dispatch_id,mp);
+info update_dispatach;
+}

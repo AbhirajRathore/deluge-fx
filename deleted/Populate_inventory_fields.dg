@@ -1,0 +1,26 @@
+void automation.Populate_inventory_fields(Int d_id)
+{
+resp = zoho.crm.getRecordById("Deals_X_Inventory",d_id);
+Stones = resp.get("Stones").get("id");
+Product = zoho.crm.getRecordById("Products",Stones);
+mp = Map();
+mp.put("Tran_Status",ifNull(Product.get("tran_status"),""));
+mp.put("Carat",ifNull(Product.get("carat"),0.0));
+mp.put("Clarity",ifNull(Product.get("clarity"),""));
+mp.put("Color",ifNull(Product.get("color"),""));
+mp.put("CUT",ifNull(Product.get("cut"),""));
+mp.put("LAB",ifNull(Product.get("lab"),""));
+mp.put("list",ifNull(Product.get("list"),0.0));
+mp.put("List_Total",ifNull(Product.get("list_total"),"").toString());
+mp.put("LSP",ifNull(Product.get("lsp"),"").toString());
+mp.put("MSP",ifNull(Product.get("msp_per"),0.0));
+mp.put("Polish",ifNull(Product.get("polish"),""));
+mp.put("Shape",ifNull(Product.get("shape"),""));
+mp.put("Symmetry",ifNull(Product.get("symmetry"),""));
+mp.put("Flow",ifNull(Product.get("fluorescence"),""));
+mp.put("DEPT",ifNull(Product.get("department_name"),""));
+mp.put("MSP_Total",ifNull(Product.get("msp_total"),"").toString());
+info mp;
+resp_update = zoho.crm.updateRecord("Deals_X_Inventory",d_id,mp);
+info resp_update;
+}

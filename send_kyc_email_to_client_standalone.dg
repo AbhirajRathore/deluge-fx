@@ -1,0 +1,257 @@
+string standalone.send_kyc_email_to_client_standalone(String crmAPIRequest)
+{
+try 
+{
+	crmAPIRequestMap = crmAPIRequest.toMap();
+	body = crmAPIRequestMap.get("body");
+	info body;
+	kyc_id = body.get("kyc_id");
+	kyc_details = zoho.crm.getRecordById("KYC",kyc_id);
+	Lead = kyc_details.get("Lead");
+	if(Lead != null)
+	{
+		Lead_id = Lead.get("id");
+		lead_details = zoho.crm.getRecordById("Leads",Lead_id);
+		Lead_Email = lead_details.get("Email");
+	}
+	else
+	{
+		return "Lead Not Found";
+	}
+	Owner_email = kyc_details.get("Owner").get("email");
+	KYC_Country = kyc_details.get("KYC_Country");
+	country = kyc_details.get("country");
+	legal_status = kyc_details.get("Legal_Status_Of_Organisation");
+	newline = "\n";
+	doc_text = "";
+	if(country == "Hong Kong")
+	{
+		if(legal_status == "Limited Company")
+		{
+			doc_text = "Business Registration document\nNAR 1 document (issued within 1 year)\nDetails of non-individual shareholder (if applicable) until UBO, UBO ID proof (Passport, Pan Card for India), Director, Manager, CEO, CFO, COO, CCO, CIO ID proof\nKYC Form – Complete and submit the provided form.\nUndertaking Letter for UBO – Signed, stamped, dated, and printed on your company letterhead.\nSource of Fund Form – Signed, stamped, dated, and printed on your company letterhead.\nPEP Declaration Form – A statement confirming the organization is not PEP-owned, or disclosing any such stakeholders. Signed, stamped, dated, and printed on your company letterhead.";
+		}
+		else if(legal_status == "Sole Propertership")
+		{
+			doc_text = "Business Registration document\nNAR 1 document (issued within 1 year)\nKYC Form – Complete and submit the provided form.\nUndertaking Letter for UBO – Signed, stamped, dated, and printed on your company letterhead.\nSource of Fund Form – Signed, stamped, dated, and printed on your company letterhead.\nPEP Declaration Form – A statement confirming the organization is not PEP-owned, or disclosing any such stakeholders. Signed, stamped, dated, and printed on your company letterhead.";
+		}
+	}
+	else
+	{
+		if(legal_status == "Private Limited Co")
+		{
+			doc_text = "Certificate of Incorporation/Valid Registration copy or tax copy (If Overseas Company)/MSME Certificate (Supplier only)\nPAN Card\nPassport proof required of at least one director for overseas company.\nIn case of Indian Private Limited, Aadhaar or PAN will suffice. (Only one director ID Proof is required)\nPAN & GST certificate is mandatory for private limited company\nTurnover declaration form\nMemorandum of Association (Non-Mandatory)\nUBO ID proof such as Passport (PAN Card for India based) of contact person mentioned in KYC form (Mandatory). Director, Manager, CEO, CFO, COO, CCO, CIO ID proof\nLLP Agreement (if applicable)\nKYC Form – Complete and submit the provided form.\nUndertaking Letter for UBO – Signed, stamped, dated, and printed on your company letterhead. (Non-Mandatory)\nSource of Fund Form – Signed, stamped, dated, and printed on your company letterhead. (Only for Foreign/overseas company)\nPEP Declaration Form – A statement confirming the organization is not PEP-owned, or disclosing any such stakeholders. Signed, stamped, dated, and printed on your company letterhead. (Only for Foreign/overseas company)";
+		}
+		else if(legal_status == "Trust")
+		{
+			doc_text = "Trust deed, GST & PAN also Mandatory\nSource of wealth & Source of fund of the Beneficial Owner (Non-Mandatory)\nID Proof of Grantor, Settlor, Trustee mentioned in the trust deed.\nKYC Form – Complete and submit the provided form.\nUndertaking Letter for UBO – Signed, stamped, dated, and printed on your company letterhead. (Non-Mandatory)\nSource of Fund Form – Signed, stamped, dated, and printed on your company letterhead. (Only for Foreign/overseas company)\nPEP Declaration Form – A statement confirming the organization is not PEP-owned, or disclosing any such stakeholders. Signed, stamped, dated, and printed on your company letterhead. (Only for Foreign/overseas company)";
+		}
+		else if(legal_status == "Sole Proprietorship")
+		{
+			doc_text = "GST Certificate\nPan Card\nImporter Exporter Certificate (Non-Mandatory)\nPropreitor ID proof (Mandatory)\nKYC Form – Complete and submit the provided form.\nUndertaking Letter for UBO – Signed, stamped, dated, and printed on your company letterhead. (Non-Mandatory)\nSource of Fund Form – Signed, stamped, dated, and printed on your company letterhead. (only for Foreign/overseas company)\nPEP Declaration Form – A statement confirming the organization is not PEP-owned, or disclosing any such stakeholders. Signed, stamped, dated, and printed on your company letterhead. (only for Foreign/overseas company)";
+		}
+		else if(legal_status == "Partnership firm")
+		{
+			doc_text = "Partnership deed/Agreement\nGST Certificate & Company PAN (Mandatory)\nPartners ID proof (Passport, Pan Card)\nKYC Form – Complete and submit the provided form.\nUndertaking Letter for UBO – Signed, stamped, dated, and printed on your company letterhead. (Non-Mandatory)\nSource of Fund Form – Signed, stamped, dated, and printed on your company letterhead. (only for Foreign/overseas company)\nPEP Declaration Form – A statement confirming the organization is not PEP-owned, or disclosing any such stakeholders. Signed, stamped, dated, and printed on your company letterhead. (only for Foreign/overseas company)";
+		}
+		else if(legal_status == "HUF")
+		{
+			doc_text = "GST Certificate\nPAN card\nID Proof of Karta";
+		}
+		else if(legal_status == "DMCC/FZCO")
+		{
+			doc_text = "Trade License\nRegistry of extract issued in one year/Latest Share Certificate\nUBO ID proof such as Passport (PAN Card for India based), Director, Manager, CEO, CFO, COO, CCO, CIO ID proof\nKYC Form – Complete and submit the provided form.\nUndertaking Letter for UBO – Signed, stamped, dated, and printed on your company letterhead.\nSource of Fund Form – Signed, stamped, dated, and printed on your company letterhead.\nPEP Declaration Form – A statement confirming the organization is not PEP-owned, or disclosing any such stakeholders. Signed, stamped, dated, and printed on your company letterhead.";
+		}
+		else if(legal_status == "Trust")
+		{
+			doc_text = "Trust deed\nSource of wealth & Source of fund of the Beneficial Owner\nID Proof of Grantor, Settlor, Trustee mentioned in the trust deed.\nKYC Form – Complete and submit the provided form.\nUndertaking Letter for UBO – Signed, stamped, dated, and printed on your company letterhead.\nSource of Fund Form – Signed, stamped, dated, and printed on your company letterhead.\nPEP Declaration Form – A statement confirming the organization is not PEP-owned, or disclosing any such stakeholders. Signed, stamped, dated, and printed on your company letterhead.";
+		}
+		else if(legal_status == "INC")
+		{
+			doc_text = "KYC Form – Complete and submit the provided form.\nIdentification & Verification Form To Comply With Aml / Patriot Act\nBusiness License / Certificate of Incorporation / EIN Letter\nResale Certificate\nCredit Reference Form\nBusiness Card - if available\nPassport / ID - If Overseas";
+		}
+		else if(legal_status == "Limited Liability Company")
+		{
+			doc_text = "KYC Form – Complete and submit the provided form.\nIdentification & Verification Form To Comply With Aml / Patriot Act\nBusiness License /Article of Organization / EIN Letter\nResale Certificate\nCredit Reference Form\nBusiness Card - if available\nPassport / ID - If Overseas";
+		}
+		else if(legal_status == "Private Limited Co (UK)")
+		{
+			doc_text = "Incorporation document\nMemorandum of Association\nConfirmation statement (Updated shareholder details) if any\nUBO ID proof (Passport, Pan Card for India), Director, Manager, CEO, CFO, COO, CCO, CIO ID proof\nKYC Form – Complete and submit the provided form.\nUndertaking Letter for UBO – Signed, stamped, dated, and printed on your company letterhead.\nSource of Fund Form – Signed, stamped, dated, and printed on your company letterhead.\nPEP Declaration Form – A statement confirming the organization is not PEP-owned, or disclosing any such stakeholders. Signed, stamped, dated, and printed on your company letterhead.";
+		}
+		else if(legal_status == "Private Limited Company/Partnership/Sole Propertership")
+		{
+			doc_text = "Latest Business Registration document/Certificate of Incorporation\nLatest Share Certificate\nUBO ID proof (Passport, Pan Card for India), Director, Manager, CEO, CFO, COO, CCO, CIO ID proof";
+		}
+		else if(legal_status == "Collective Investment Scheme")
+		{
+			doc_text = "Prospectus\nUBO ID proof (Passport, Pan Card for India), Director, Manager, CEO, CFO, COO, CCO, CIO ID proof\nShareholder certificate\nKYC Form – Complete and submit the provided form.\nUndertaking Letter for UBO – Signed, stamped, dated, and printed on your company letterhead.\nSource of Fund Form – Signed, stamped, dated, and printed on your company letterhead.\nPEP Declaration Form – A statement confirming the organization is not PEP-owned, or disclosing any such stakeholders. Signed, stamped, dated, and printed on your company letterhead.";
+		}
+		else if(legal_status == "Private Limited Co/Limited Liability Company")
+		{
+			doc_text = "Certificate of Incorporation\nPassport or Pan card if any(applicable for India based entity/Individual only)\nMemorandum of Association\nUBO ID proof such as Passport(Pan Card for India based), Director, Manager, CEO, CFO, COO, CCO, CIO ID proof\nIf company immediate shareholder is non individual(entity) of our client then we require those company details as well until we reach for UBO depend on entity type\nLLC Agreement (if applicable)\nKYC Form – Complete and submit the provided form.\nUndertaking Letter for UBO – Signed, stamped, dated, and printed on your company letterhead.\nSource of Fund Form – Signed, stamped, dated, and printed on your company letterhead.\nPEP Declaration Form – A statement confirming the organization is not PEP-owned, or disclosing any such stakeholders. Signed, stamped, dated, and printed on your company letterhead.";
+		}
+		else if(legal_status == "BV")
+		{
+			doc_text = "Company registration document with business status active/KBO document\nUBO Register issued within one year\nUBO ID proof (Passport, Pan Card for India), Director, Manager, CEO, CFO, COO, CCO, CIO ID proof";
+		}
+		else
+		{
+			doc_text = "KYC Form – Complete and submit the provided form.\nUndertaking Letter for UBO – Signed, stamped, dated, and printed on your company letterhead.\nSource of Fund Form – Signed, stamped, dated, and printed on your company letterhead.\nPEP Declaration Form – A statement confirming the organization is not PEP-owned, or disclosing any such stakeholders. Signed, stamped, dated, and printed on your company letterhead.";
+		}
+	}
+	// Convert plain text to HTML list
+	list_items = "";
+	if(doc_text != "")
+	{
+		items = doc_text.toList("\n");
+		for each  item in items
+		{
+			list_items = list_items + "<li style='margin-bottom: 5px'><span style='color: #333333'>" + item + "</span></li>";
+		}
+		htmlRow = "<tr><td valign='top' style='font-family: Poppins, Arial, sans-serif; color: #333333; font-size: 14px; line-height: 24px; padding: 0 15px 10px;' class='font14'><ul style='margin: 0; padding-left: 15px; list-style-type: disc;'>" + list_items + "</ul></td></tr>";
+	}
+	if(country == "India")
+	{
+		Compliance_team = {"user_name":"Alwin Mantero","email":"kyc.mumbai@kgkmail.com"};
+		Compliance_team_email = "kyc.mumbai@kgkmail.com";
+	}
+	else if(country == "Belgium")
+	{
+		Compliance_team = {"user_name":"Miranda Creemers","email":"user5email@zoho.com"};
+		Compliance_team_email = "miranda.creemers@kgkmail.com";
+	}
+	else if(country == "New York")
+	{
+		Compliance_team = {"user_name":"Samarth Vyas","email":"compliance.kgkny@kgkmail.com"};
+		Compliance_team_email = "compliance.kgkny@kgkmail.com";
+	}
+	else
+	{
+		Compliance_team = {"user_name":"Pankaj Khandelwal","email":"hpmccpj@gmail.com"};
+		Compliance_team_email = "hpmccpj@gmail.com";
+	}
+	mp = Map();
+	mp.put("Required_KYC_Documents_List",htmlRow);
+	mp.put("Compliance_Team_Email",Compliance_team_email);
+	info mp;
+	update = zoho.crm.updateRecord("KYC",kyc_id,mp);
+	info update;
+	// 	Download Files
+	// 	============================================
+	alist = List();
+	if(KYC_Country == "India")
+	{
+		resource_id = "304x462dbf4dbdf7b40118da0111f97f39b28";
+		header = Map();
+		header.put("Accept","application/vnd.api+json");
+		file_response = invokeurl
+		[
+			url :"https://download.zoho.com/v1/workdrive/download/" + resource_id
+			type :GET
+			headers:header
+			connection:"wdconnection"
+		];
+		info file_response;
+		file_response.setParamName("file");
+		response = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v5/files"
+			type :POST
+			files:file_response
+			connection:"crm"
+		];
+		info response;
+		fid = response.get("data").get(0).get("details").get("id");
+		// info "FID - " + fid;
+		attachmap = Map();
+		attachmap.put("id",fid);
+		alist.add(attachmap);
+	}
+	else if(KYC_Country == "UAE")
+	{
+		resource_list = {"304x41fc7477b4ea44334bd745937ee2beb1c","304x459cbcb2d023b4fc0a5a8ebe71ba8a07e","304x45a07020460d2449cba339f3c0c0b3e36","304x423ddc4e046304072a629d9ecae274a3c"};
+		for each  resource_id in resource_list
+		{
+			header = Map();
+			header.put("Accept","application/vnd.api+json");
+			file_response = invokeurl
+			[
+				url :"https://download.zoho.com/v1/workdrive/download/" + resource_id
+				type :GET
+				headers:header
+				connection:"wdconnection"
+			];
+			// 		info file_response;
+			file_response.setParamName("file");
+			response = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v5/files"
+				type :POST
+				files:file_response
+				connection:"crm"
+			];
+			// 		info response;
+			fid = response.get("data").get(0).get("details").get("id");
+			// info "FID - " + fid;
+			attachmap = Map();
+			attachmap.put("id",fid);
+			alist.add(attachmap);
+		}
+		// 	============================================
+	}
+	// info alist;
+	// 	Send Email ================================
+	emails_to_send = {{"email":Owner_email}};
+	sendfrom = Map();
+	sendfrom.put("email","crm.support@kgkmail.com");
+	sendto = Map();
+	sendto.put("email",Lead_Email);
+	tolist = List();
+	tolist.add(sendto);
+	// 	reply_to_list = List();
+	// 	reply_to_list.add(reply_to);
+	tempmp = Map();
+	tempmp.put("id","5870915000114176012");
+	Send_Email_mp = Map();
+	Send_Email_mp.put("from",sendfrom);
+	Send_Email_mp.put("to",tolist);
+	Send_Email_mp.put("cc",emails_to_send);
+	Send_Email_mp.put("reply_to",Compliance_team);
+	Send_Email_mp.put("template",tempmp);
+	Send_Email_mp.put("attachments",alist);
+	Send_Email_mp.put("org_email",true);
+	Send_Email_dlist = List();
+	Send_Email_dlist.add(Send_Email_mp);
+	Send_Email_data = Map();
+	Send_Email_data.put("data",Send_Email_dlist);
+	// info "Send_Email_data - " + Send_Email_data;
+	Send_Email = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v2.1/KYC/" + kyc_id + "/actions/send_mail"
+		type :POST
+		parameters:Send_Email_data + ""
+		connection:"zohocrm"
+	];
+	info "Send_Email - " + Send_Email;
+	data = Send_Email.get("data");
+	for each  email_data in data
+	{
+		if(email_data.get("status") != "success")
+		{
+			message = email_data.get("message");
+			newline = hextoText("0A");
+			resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Email sending failed to Client for KYC." + newline + "KYC - https://crm.kgkgroup.com/crm/org821143611/tab/CustomModule2/" + kyc_id + newline + "" + message,"cliq");
+			// 					info resp;
+			return message;
+		}
+	}
+	return "KYC Email Sent to Client";
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","First KYC Email sending to Client Failed." + newline + " KYC - https://crm.zoho.com/crm/org821143611/tab/CustomModule2/" + kyc_id + " " + newline + "" + e,"cliq");
+	info resp;
+	return "Error - " + e;
+}
+return "";
+}

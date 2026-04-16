@@ -1,0 +1,21 @@
+map validation_rule.validation_on_phone_lead(String crmAPIRequest)
+{
+entityMap = crmAPIRequest.toMap().get("record");
+text = entityMap.get("Phone");
+// // Remove any extra spaces and special characters except "+"
+// Phone = text.replaceAll("[^0-9+ ]", "").replaceAll("\\s+", " ").trim();
+// Ensure the phone number follows the required format
+phonePattern = "^[+][1-9][0-9]{0,4} [0-9]{6,14}$";
+// Enforce one space after country code
+response = Map();
+if(text.matches(phonePattern))
+{
+	response.put('status','success');
+}
+else
+{
+	response.put('status','error');
+	response.put('message','Please enter a valid phone number with the country code. Format: +[CountryCode] [Number] (Only one space after country code, no special characters)');
+}
+return response;
+}

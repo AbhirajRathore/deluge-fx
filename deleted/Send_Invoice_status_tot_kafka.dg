@@ -1,0 +1,43 @@
+void automation.Send_Invoice_status_tot_kafka(Int tran_id)
+{
+kafka_token = standalone.get_variable_value("config_api","kafka","token");
+kafka_url = standalone.get_variable_value("config_api","kafka","url");
+kafka_event_list = List();
+Tran_details = zoho.crm.getRecordById("International_Transaction",tran_id);
+Location = ifNull(Tran_details.get("Location"),"India");
+info Location;
+Ref_Date = Tran_details.get("Ref_Date");
+Ref_No = Tran_details.get("Ref_No");
+Deal_id = Tran_details.get("Deal_Name").get("id");
+Contact_Name_id = Tran_details.get("Contact_Name").get("id");
+contact_name = Tran_details.get("Contact_Name").get("name");
+deal_details = zoho.crm.getRecordById("Deals",Deal_id);
+if(deal_details.get("order_id") != null)
+{
+	order_id = deal_details.get("order_id");
+}
+else
+{
+	order_id = Deal_id;
+}
+contact_name = deal_details.get("Contact_Name").get("name");
+kafka_field_map = Map();
+kafka_field_map.put("contact_id",Contact_Name_id);
+kafka_field_map.put("order_id",order_id);
+kafka_field_map.put("contact_name",contact_name);
+kafka_field_map.put("stones",kafka_event_list);
+kafka_field_map.put("order_type","INVOICE");
+kafka_field_map.put("ref_invoice_num",Ref_No);
+kafka_field_map.put("location",Location);
+kafka_header_data = Map();
+kafka_header_data.put("Authorization","Bearer " + kafka_token);
+kafka_header_data.put("Content-Type","application/json");
+kafka_event = invokeurl
+[
+	url :kafka_url + "/api/crm/order"
+	type :POST
+	parameters:kafka_field_map.toString()
+	headers:kafka_header_data
+];
+info "Kafka Event - " + kafka_event;
+}

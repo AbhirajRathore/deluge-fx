@@ -1,0 +1,52 @@
+string button.Update_subform(String id)
+{
+a = invokeurl
+[
+	url :"https://crm.zoho.com/crm/v3/Quotes/" + id
+	type :GET
+	connection:"crm"
+];
+// info a;
+// a= zoho.crm.getRecordById("Quotes", 4821659000002057086);
+// info a;
+Description = a.getJson("data").getJSON("Add_Lot_Number").replaceAll("\n",",").toString();
+info Description;
+s = List();
+for each  rec in Description
+{
+	info rec;
+	search = zoho.crm.searchRecords("Products","(Product_Name:equals:" + rec + ")");
+	// 	info search;
+	proname = search.getJson("Product_Name");
+	info proname;
+	record_id = search.getJson("id");
+	info record_id;
+	WEIGHT = search.getJson("carat");
+	LISTTOTAL = search.getJson("list_total");
+	mp = Map();
+	mp.put("Product_Name",{"name":proname,"id":record_id});
+	mp.put("Carat",WEIGHT);
+	mp.put("Quantity",1);
+	mp.put("Price_US",LISTTOTAL);
+	// 	info mp;	
+	s.add(mp);
+}
+main_map = Map();
+main_map.put("Quoted_Items",s);
+// 	info main_map;
+hh = List();
+mi = Map();
+hh.add(main_map);
+mi.put("data",hh);
+// upd = zoho.crm.updateRecord("Quotes",4821659000002057086,main_map);
+// info upd;
+crt = invokeurl
+[
+	url :"https://crm.zoho.com/crm/v2.1/Quotes/" + id
+	type :PUT
+	parameters:mi.toString()
+	connection:"crm"
+];
+info "crt----->" + crt;
+return "Subform is Updatded Please Refresh the Page";
+}

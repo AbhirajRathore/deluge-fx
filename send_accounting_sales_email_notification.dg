@@ -1,0 +1,21 @@
+void automation.send_accounting_sales_email_notification(Int New_record_id)
+{
+resp = zoho.crm.getRecordById("International_Transaction",New_record_id);
+action = ifNull(resp.get("Transaction_Category"),"");
+if(action == "")
+{
+	action = "Local Sale";
+}
+email_sheet = Map();
+email_sheet.put("New_record_id",New_record_id);
+email_sheet.put("Module_API","International_Transaction");
+email_sheet.put("action",action);
+Send_sheet = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v7/functions/send_email_to_accounting_team/actions/execute?auth_type=apikey&zapikey=1003.0be59d77b844f99c360e7029a1f12ec1.a0373baf7027cb5491206d845574530b"
+	type :Post
+	parameters:email_sheet.toString()
+	connection:"zohocrm"
+];
+info "Send_sheet - " + Send_sheet;
+}

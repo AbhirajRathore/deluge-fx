@@ -1,0 +1,6 @@
+void schedule.accounts_sync()
+{
+info standalone.set_nivid_token();
+info standalone.accounts_sync_function();
+info standalone.tag_retention_deal();
+}

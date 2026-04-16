@@ -1,0 +1,77 @@
+string button.delete_unrelated_stones1()
+{
+moduleName = "Transaction_X_Inventory";
+moduleApiNameForDelete = "Transaction_X_Inventory";
+// Step 1: Fetch up to 200 records where Transaction.id is null
+nextToken = 0;
+idList = list();
+iterations = "".leftpad(5).toList("");
+// Up to 10,000 records (50 * 200)
+for each  i in iterations
+{
+	queryMap = Map();
+	queryMap.put("select_query","SELECT id FROM " + moduleName + " WHERE Transaction.id is null limit 2000 offset " + nextToken);
+	response = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v4/coql"
+		type :POST
+		body:queryMap.toString()
+		connection:"crm"
+	];
+	records = response.get("data");
+	for each  record in records
+	{
+		idList.add(record.get("id"));
+	}
+	if(response.containsKey("info") && response.get("info").containsKey("more_records") && response.get("info").get("more_records") == true)
+	{
+		nextToken = 2000;
+	}
+	else
+	{
+		break;
+	}
+}
+info "Number of records to be deleted : " + idList.size();
+// Step 2: If no records left, break
+if(idList.isEmpty())
+{
+	return "No more records to delete.";
+}
+// Step 3: Delete in batches of 100
+iteration = "".leftPad(200).toList("");
+for each  deleteBatch in iteration
+{
+	if(idList.size() > 100)
+	{
+		deleteBatch = idList.subList(0,100);
+		param = Map();
+		param.put("ids",deleteBatch);
+		deleteResp = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v4/" + moduleApiNameForDelete + "/actions/mass_delete"
+			type :POST
+			body:param.toString()
+			connection:"currency_connection"
+		];
+		info "Deleted batch of " + deleteBatch.size() + " records.";
+		idList.removeAll(deleteBatch);
+	}
+	else
+	{
+		param = Map();
+		param.put("ids",idList);
+		deleteResp = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v4/" + moduleApiNameForDelete + "/actions/mass_delete"
+			type :POST
+			body:param.toString()
+			connection:"currency_connection"
+		];
+		// 			info deleteResp ;
+		info "Deleted records of " + idList.size() + " records.";
+		break;
+	}
+}
+return " updated";
+}

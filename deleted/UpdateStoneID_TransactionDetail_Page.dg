@@ -1,0 +1,16 @@
+string standalone.UpdateStoneID_TransactionDetail_Page(String recordid)
+{
+resvp = zoho.crm.getRelatedRecords("Inventory","International_Transaction",recordid);
+StonelIst = List();
+if(resvp.size() > 0)
+{
+	for each  rec in resvp
+	{
+		StroneID = rec.get("Stone").getJSON("name");
+		StonelIst.add(StroneID);
+	}
+}
+mp = Map();
+mp.put("responsedata",StonelIst);
+return mp;
+}

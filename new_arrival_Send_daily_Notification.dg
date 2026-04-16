@@ -1,0 +1,99 @@
+void schedule.new_arrival_Send_daily_Notification()
+{
+medusa_url = standalone.get_variable_value("config_api","medusa","url");
+medusa_token = standalone.get_variable_value("config_api","medusa","token");
+onesignal_url = standalone.get_variable_value("config_api","onesignal","url");
+onesignal_token = standalone.get_variable_value("config_api","onesignal","token");
+info today.getDayOfWeek();
+if(today.getDayOfWeek() != 1 || today.getDayOfWeek() != 7)
+{
+	user_id_list = list();
+	device_id_list = list();
+	more_records = true;
+	numrecords = 0;
+	iterations = "".leftpad(5 - 1).toList("");
+	for each  iteration in iterations
+	{
+		if(more_records)
+		{
+			queryMap = Map();
+			queryMap.put("select_query","select id, user_id, Email from Contacts where user_id != '' limit 2000 offset " + numrecords);
+			response = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v7/coql"
+				type :POST
+				parameters:queryMap.toString()
+				connection:"crm"
+			];
+			// 							info response;
+			more_records = response.get("info").get("more_records");
+			data = response.get("data");
+			if(data.size() > 0)
+			{
+				for each  con in data
+				{
+					if(con.get("user_id") != null)
+					{
+						user_id_list.add(con.get("user_id").toString());
+					}
+				}
+			}
+			numrecords = numrecords + data.size();
+		}
+		else
+		{
+			break;
+		}
+	}
+	param = Map();
+	param.put("customerIds",user_id_list);
+	header = Map();
+	header.put("Content-Type","application/json");
+	header.put("Authorization","Bearer " + medusa_token);
+	get_device_id = invokeurl
+	[
+		url :medusa_url + "public/customers-device-uuid"
+		type :POST
+		parameters:param.toString()
+		headers:header.toMap()
+	];
+	// 	info  get_device_id ;
+	data = get_device_id.get("data");
+	if(data.size() > 0)
+	{
+		for each  cus in data
+		{
+			device_uuid = cus.get("device_uuid");
+			if(device_uuid != "")
+			{
+				device_id_list.add(device_uuid);
+			}
+		}
+	}
+	info "Number of Record Searched - " + numrecords;
+	info "User Id size - " + user_id_list.size();
+	info "Device ID Size - " + device_id_list.size();
+	// 	<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+	// Send Notification 
+	// 	---------------------------------------------------------
+	headers_mp = Map();
+	headers_mp.put("Authorization","Basic " + onesignal_token);
+	headers_mp.put("accept","application/json");
+	headers_mp.put("Content-type","application/json");
+	param_mp = Map();
+	param_mp.put("app_id","378b2db1-01ba-4f45-b8cf-9500ea88056b");
+	param_mp.put("include_player_ids",device_id_list);
+	param_mp.put("mutable_content",true);
+	param_mp.put("template_id","f75caaeb-7d6c-4da8-b562-6c43c3fbfaf9");
+	param_mp.put("data",{"targetPage":"new-arrival:bidStone"});
+	response = invokeurl
+	[
+		url :onesignal_url
+		type :POST
+		parameters:param_mp.toString()
+		headers:headers_mp
+	];
+	// 	info response;
+	// --------------------------------------------------------------
+}
+}

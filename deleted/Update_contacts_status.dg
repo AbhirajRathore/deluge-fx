@@ -1,0 +1,143 @@
+void schedule.Update_contacts_status()
+{
+iterations = "".leftpad(20 - 1).toList("");
+pageCounter = 1;
+numRecords = 0;
+records_to_update = 0;
+createList = List();
+for each  iteration in iterations
+{
+	page = pageCounter;
+	perPage = 200;
+	contacts = zoho.crm.getRecords("Contacts",page,perPage);
+	if(contacts.size() == 0)
+	{
+		break;
+	}
+	else
+	{
+		for each  con in contacts
+		{
+			Created_Time = con.get("Created_Time");
+			Contact_Statuses = ifNull(con.get("Contact_Statuses"),"");
+			Contact_id = con.get("id");
+			if(daysBetween(Created_Time,today) <= 180)
+			{
+				mp = Map();
+				mp.put("Contact_Statuses","Active");
+				mp.put("id",con.get("id"));
+				createList.add(mp);
+				continue;
+			}
+			else
+			{
+				Transactions_iterations = "".leftpad(20 - 1).toList("");
+				Transactions_pageCounter = 1;
+				Transactions_created_list = List();
+				Active_Transactions = List();
+				Dormant_Active_Transactions = list();
+				for each  Transactions_iteration in Transactions_iterations
+				{
+					Transactions_page = Transactions_pageCounter;
+					Transactions_perPage = 200;
+					contact_Transactions = zoho.crm.getRelatedRecords("International_Transactions","Contacts",Contact_id,Transactions_page,Transactions_perPage);
+					if(contact_Transactions.size() == 0)
+					{
+						break;
+					}
+					else
+					{
+						for each  transaction in contact_Transactions
+						{
+							transaction_date = transaction.get("Created_Time");
+							Transactions_created_list.add(transaction.get("id"));
+							if(daysBetween(transaction_date,today) <= 180 && transaction.get("Locked__s") == true)
+							{
+								Active_Transactions.add(transaction.get("id"));
+							}
+							else if(daysBetween(transaction_date,today) > 180 && daysBetween(transaction_date,today) <= 365 && transaction.get("Locked__s") == true)
+							{
+								Dormant_Active_Transactions.add(transaction.get("id"));
+							}
+						}
+					}
+					Transactions_pageCounter = Transactions_pageCounter + 1;
+				}
+				if(Active_Transactions.size() > 0 && Dormant_Active_Transactions.size() > 0)
+				{
+					mp = Map();
+					mp.put("Contact_Statuses","Active");
+					mp.put("id",con.get("id"));
+					createList.add(mp);
+					continue;
+				}
+				else if(Active_Transactions.size() > 0)
+				{
+					mp = Map();
+					mp.put("Contact_Statuses","Dormant-Active");
+					mp.put("id",con.get("id"));
+					createList.add(mp);
+					continue;
+				}
+				else
+				{
+					mp = Map();
+					mp.put("Contact_Statuses","Dormant");
+					mp.put("id",con.get("id"));
+					createList.add(mp);
+					continue;
+				}
+			}
+		}
+	}
+	pageCounter = pageCounter + 1;
+	numRecords = numRecords + contacts.size();
+}
+info "Page Counter - " + pageCounter;
+info "records_to_update - " + records_to_update;
+info "numRecords - " + numRecords;
+info "Main Size - " + createList.size();
+// 		for less than 100 records ...................
+if(createList.size() <= 100 && createList.size() > 0)
+{
+	info "Create List is less than equals 100";
+	bulk_create = zoho.crm.bulkUpdate("Contacts",createList);
+	for each  bulk in bulk_create
+	{
+		info bulk.get("code");
+		break;
+	}
+}
+else if(createList.size() > 100)
+{
+	stone_iterations = "".leftpad(50 - 1).toList("");
+	for each  stone_iteration in stone_iterations
+	{
+		info createList.size();
+		if(createList.size() > 100)
+		{
+			info "Create List is greater than 100";
+			newListVar = createList.subList(0,100);
+			bulk_create = zoho.crm.bulkUpdate("Contacts",newListVar);
+			// 				info bulk_create;
+			for each  bulk in bulk_create
+			{
+				info bulk.get("code");
+				break;
+			}
+			createList.removeAll(newListVar);
+		}
+		else
+		{
+			info "Create List is less than equals 100";
+			bulk_create = zoho.crm.bulkUpdate("Contacts",createList);
+			for each  bulk in bulk_create
+			{
+				info bulk.get("code");
+				break;
+			}
+			break;
+		}
+	}
+}
+}

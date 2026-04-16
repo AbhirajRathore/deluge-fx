@@ -1,0 +1,99 @@
+void automation.populate_transaction_amount()
+{
+iterations = "".leftpad(60 - 1).toList("");
+pageCounter = 1;
+numRecords = 0;
+createList = List();
+for each  iteration in iterations
+{
+	page = pageCounter;
+	perPage = 200;
+	transactions = zoho.crm.getRecords("International_Transaction",page,perPage);
+	if(transactions.size() == 0)
+	{
+		break;
+	}
+	else
+	{
+		for each  transaction in transactions
+		{
+			Amount = transaction.get("Amount");
+			if(Amount == 0.0 && transaction.get("Ref_No") != null)
+			{
+				tran_id = transaction.get("id");
+				info tran_id;
+				// 				Amount = 0.0;
+				// 				Total_quantity = 0;
+				// 				total_carat = 0.0;
+				// 				Transaction_Stones	= zoho.crm.getRelatedRecords("Inventory", "International_Transaction", tran_id);
+				// 				if ( Transaction_Stones.size() > 0 ) 
+				//                 {
+				// 					for each stones in Transaction_Stones
+				//                     {
+				// 						Amount_USD = ifNull(stones.get("Amount_USD"),0.0);
+				// 						Amount = Amount + Amount_USD;
+				// 						Carat = ifNull(stones.get("Carat"),0.0);
+				// 						total_carat = Carat + total_carat;
+				// 					}
+				// 						mp = map();
+				// 						mp.put("Amount", Amount);
+				// 						mp.put("total_carat", total_carat);
+				// 						mp.put("quantity", Transaction_Stones.size());
+				// 						mp.put("id", tran_id);
+				// 						createList.add(mp);
+				//                 }
+			}
+		}
+	}
+	pageCounter = pageCounter + 1;
+	numRecords = numRecords + transactions.size();
+}
+info "Page Counter - " + pageCounter;
+info "records to be updated - " + createList.size();
+info "Number of records - " + numRecords;
+// info "Map - "+ createList;
+/*
+if(createList.size() <= 100 && createList.size() > 0)
+{
+	info "Create List is less than equals 100";
+	bulk_create = zoho.crm.bulkUpdate("International_Transaction",createList);
+	for each  bulk in bulk_create
+	{
+		info bulk.get("code");
+		break;
+	}
+}
+else if(createList.size() > 100)
+{
+	stone_iterations = "".leftpad(50 - 1).toList("");
+	for each  stone_iteration in stone_iterations
+	{
+		info createList.size();
+		if(createList.size() > 100)
+		{
+			info "Create List is greater than 100";
+			newListVar = createList.subList(0,100);
+			bulk_create = zoho.crm.bulkUpdate("International_Transaction",newListVar);
+			// 				info bulk_create;
+			for each  bulk in bulk_create
+			{
+				info bulk.get("code");
+				break;
+			}
+			createList.removeAll(newListVar);
+		}
+		else
+		{
+			info "Create List is less than equals 100";
+			bulk_create = zoho.crm.bulkUpdate("International_Transaction",createList);
+			for each  bulk in bulk_create
+			{
+				info bulk.get("code");
+				break;
+			}
+			break;
+		}
+	}
+}
+*/
+}

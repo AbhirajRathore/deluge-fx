@@ -1,0 +1,161 @@
+string standalone.client_script_get_related_contacts(String acc_id)
+{
+acc_details = zoho.crm.getRecordById("Accounts",acc_id);
+contactCandidates = List();
+assocContacts = zoho.crm.getRelatedRecords("Associated_Contacts11","Accounts",acc_id);
+if(assocContacts.size() > 0)
+{
+	info "Found Associated Contacts: " + assocContacts.size();
+	for each  assocContact in assocContacts
+	{
+		contact_id = assocContact.get("Contacts").get("id");
+		if(contact_id != null)
+		{
+			contactCandidates.add(contact_id.toString());
+		}
+	}
+}
+// 2. Regular Contacts of the Account
+contacts = zoho.crm.getRelatedRecords("Contacts","Accounts",acc_id);
+if(contacts.size() > 0)
+{
+	info "Found Regular Contacts: " + contacts.size();
+	for each  contact in contacts
+	{
+		contactCandidates.add(contact.get("id").toString());
+	}
+}
+// 3. Child Accounts and their contacts
+childAccounts = zoho.crm.getRelatedRecords("Child_Accounts","Accounts",acc_id);
+if(childAccounts.size() > 0)
+{
+	info "Found Child Accounts: " + childAccounts.size();
+	for each  childAcc in childAccounts
+	{
+		child_id = childAcc.get("id");
+		// Associated Contacts of child
+		childAssocContacts = zoho.crm.getRelatedRecords("Associated_Contacts11","Accounts",child_id);
+		if(childAssocContacts.size() > 0)
+		{
+			info "Found Associated Contacts: " + assocContacts.size();
+			for each  assocContact in assocContacts
+			{
+				contact_id = assocContact.get("Contacts").get("id");
+				if(contact_id != null)
+				{
+					contactCandidates.add(contact_id.toString());
+				}
+			}
+		}
+		// Regular contacts of child
+		childContacts = zoho.crm.getRelatedRecords("Contacts","Accounts",child_id);
+		if(childContacts.size() > 0)
+		{
+			info "Found Regular Contacts of Child Accounts: " + childContacts.size();
+			for each  childContact in childContacts
+			{
+				contactCandidates.add(childContact.get("id").toString());
+			}
+		}
+	}
+}
+// 4. Parent account and its hierarchy
+parentAcc = acc_details.get("Parent_Account");
+if(parentAcc != null)
+{
+	info "Parent Account found";
+	parentAcc_id = parentAcc.get("id");
+	parentContacts = zoho.crm.getRelatedRecords("Contacts","Accounts",parentAcc_id);
+	if(parentContacts.size() > 0)
+	{
+		info "Found Regular Contacts of Parent Account: " + parentContacts.size();
+		for each  parentContact in parentContacts
+		{
+			contactCandidates.add(parentContact.get("id").toString());
+		}
+	}
+	parentAssocContacts = zoho.crm.getRelatedRecords("Associated_Contacts11","Accounts",parentAcc_id);
+	if(parentAssocContacts.size() > 0)
+	{
+		info "Found Associated Contacts: " + assocContacts.size();
+		for each  assocContact in assocContacts
+		{
+			contact_id = assocContact.get("Contacts").get("id");
+			if(contact_id != null)
+			{
+				contactCandidates.add(contact_id.toString());
+			}
+		}
+	}
+	// Child accounts of the parent
+	parentChildAccounts = zoho.crm.getRelatedRecords("Child_Accounts","Accounts",parentAcc_id);
+	if(parentChildAccounts.size() > 0)
+	{
+		for each  pc in parentChildAccounts
+		{
+			pc_id = pc.get("id");
+			pcContacts = zoho.crm.getRelatedRecords("Contacts","Accounts",pc_id);
+			if(pcContacts.size() > 0)
+			{
+				for each  pcContact in pcContacts
+				{
+					contactCandidates.add(pcContact.get("id").toString());
+				}
+			}
+			pcAssocContacts = zoho.crm.getRelatedRecords("Associated_Contacts11","Accounts",pc_id);
+			if(pcAssocContacts.size() > 0)
+			{
+				info "Found Associated Contacts: " + assocContacts.size();
+				for each  assocContact in assocContacts
+				{
+					contact_id = assocContact.get("Contacts").get("id");
+					if(contact_id != null)
+					{
+						contactCandidates.add(contact_id.toString());
+					}
+				}
+			}
+		}
+	}
+}
+contact_ids = contactCandidates.distinct();
+if(contact_ids.size() > 0)
+{
+	info contact_ids;
+	mp = Map();
+	mp.put("ids",contact_ids);
+}
+else
+{
+	mp = "";
+}
+/*
+	// Account info validations
+	customer_info = acc_details.get("customer_info");
+	account_status = acc_details.get("active");
+	party_type = acc_details.get("party_type");
+
+	if(customer_info == null)
+	{
+		input.Account_Name.showerror("Account Priority is Empty");
+	}
+
+	if(party_type == "OVERSEAS")
+	{
+		input.Pipeline = "International Sales Pipeline";
+	}
+	else
+	{
+		input.Pipeline = "Local Sales Pipeline";
+	}
+
+	input.Deal_Name = acc_name;
+}
+else
+{
+	input.Deal_Name = "";
+	input.Contact_Name = null;
+}
+	*/
+return contact_ids.tolist(",");
+}

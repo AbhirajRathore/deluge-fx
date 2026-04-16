@@ -1,0 +1,188 @@
+void automation.Update_related_deal_and_lead_source_on_inventory(String tran_id)
+{
+transactionDetails = zoho.crm.getRecordById("International_Transaction",tran_id);
+accountName = transactionDetails.get("Account_Name").get("id");
+recordOwner = transactionDetails.get("Owner").get("id");
+Lead_Source = transactionDetails.get("Lead_Source");
+if(isNull(transactionDetails.get("Deal_Name")))
+{
+	info "Deal Not In Transaction and Searching for Deal";
+	allTransactionStones = zoho.crm.getRelatedRecords("Inventory","International_Transaction",tran_id);
+	info allTransactionStones.size();
+	if(allTransactionStones.size() > 0)
+	{
+		for each  Stone in allTransactionStones
+		{
+			Stone_name = Stone.get("Stone").get("name");
+			stone_id = Stone.get("Stone").get("id");
+			break;
+		}
+	}
+	else
+	{
+		info "No Stone Found!";
+		return;
+	}
+	alldealStones = List();
+	offset = 0;
+	// Start offset
+	limit = 1;
+	// COQL max limit per query
+	deal_stones_queryMap = Map();
+	deal_stones_queryMap.put("select_query","select Stones, deal_stones from Deals_X_Inventory where ((Stones.id = " + stone_id + ") and (deal_stones.Owner.id = " + recordOwner + ")) and (deal_stones.Account_Name = " + accountName + ") limit " + offset + ", " + limit);
+	dealStones = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v7/coql"
+		type :POST
+		parameters:deal_stones_queryMap.toString()
+		connection:"crm"
+	];
+	alldealStones = dealStones.get("data");
+	if(alldealStones.size() > 0)
+	{
+		info "Deal Found!";
+		for each  deal in alldealStones
+		{
+			deal_id = deal.get("deal_stones").get("id");
+			break;
+		}
+		deal_details = zoho.crm.getRecordById("Deals",deal_id);
+		Lead_Source = ifNull(deal_details.get("Lead_Source"),"");
+		update_deal = zoho.crm.updateRecord("Deals",deal_id,{"Stage":"Closed Won"});
+		tran_map = Map();
+		tran_map.put("Lead_Source",Lead_Source);
+		tran_map.put("Deal_Name",deal_id);
+		update_tarn = zoho.crm.updateRecord("International_Transaction",tran_id,tran_map);
+		iterations = "".leftpad(20 - 1).toList("");
+		pageCounter = 1;
+		numRecords = 0;
+		for each  iteration in iterations
+		{
+			page = pageCounter;
+			perPage = 200;
+			line_items = zoho.crm.getRelatedRecords("Inventory","International_Transaction",tran_id,page,perPage);
+			if(line_items.size() == 0)
+			{
+				break;
+			}
+			else
+			{
+				createlist = List();
+				for each  rec in line_items
+				{
+					Stones_id = rec.get("Stone").get("id");
+					bid_discount = ifNull(rec.get("bid_discount"),0.0).toDecimal();
+					record_map = {"id":Stones_id,"Deal_by":recordOwner,"Lead_Source":Lead_Source,"Bid":bid_discount};
+					createlist.add(record_map);
+				}
+			}
+			if(createlist.size() <= 100 && createlist.size() > 0)
+			{
+				bulk_update = zoho.crm.bulkUpdate("Products",createlist);
+			}
+			else
+			{
+				newListVar = createlist.subList(0,100);
+				bulk_update = zoho.crm.bulkUpdate("Products",newListVar);
+				createlist.removeAll(newListVar);
+				bulk_update = zoho.crm.bulkUpdate("Products",createlist);
+			}
+		}
+	}
+	else
+	{
+		info "Deal NOT Found!";
+		iterations = "".leftpad(20 - 1).toList("");
+		pageCounter = 1;
+		numRecords = 0;
+		for each  iteration in iterations
+		{
+			page = pageCounter;
+			perPage = 200;
+			line_items = zoho.crm.getRelatedRecords("Inventory","International_Transaction",tran_id,page,perPage);
+			if(line_items.size() == 0)
+			{
+				break;
+			}
+			else
+			{
+				createlist = List();
+				for each  rec in line_items
+				{
+					Stones_id = rec.get("Stone").get("id");
+					bid_discount = ifNull(rec.get("bid_discount"),0.0).toDecimal();
+					record_map = {"id":Stones_id,"Deal_by":recordOwner,"Lead_Source":Lead_Source,"Bid":bid_discount};
+					createlist.add(record_map);
+				}
+			}
+			if(createlist.size() <= 100 && createlist.size() > 0)
+			{
+				bulk_update = zoho.crm.bulkUpdate("Products",createlist);
+			}
+			else
+			{
+				newListVar = createlist.subList(0,100);
+				bulk_update = zoho.crm.bulkUpdate("Products",newListVar);
+				createlist.removeAll(newListVar);
+				bulk_update = zoho.crm.bulkUpdate("Products",createlist);
+			}
+		}
+	}
+}
+else
+{
+	deal_id = transactionDetails.get("Deal_Name").get("id");
+	info "Deal already in Transaction";
+	deal_details = zoho.crm.getRecordById("Deals",deal_id);
+	// 		Owner = deal_details.get("Owner").get("id");
+	Lead_Source = ifNull(deal_details.get("Lead_Source"),"");
+	// 		update_deal = zoho.crm.updateRecord("Deals",deal_id,{"Stage":"Closed Won"});
+	tran_map = Map();
+	tran_map.put("Lead_Source",Lead_Source);
+	update_tarn = zoho.crm.updateRecord("International_Transaction",tran_id,tran_map);
+	iterations = "".leftpad(20 - 1).toList("");
+	pageCounter = 1;
+	numRecords = 0;
+	for each  iteration in iterations
+	{
+		createlist = List();
+		page = pageCounter;
+		perPage = 200;
+		line_items = zoho.crm.getRelatedRecords("Inventory","International_Transaction",tran_id,page,perPage);
+		// 			info line_items;
+		if(line_items.size() == 0)
+		{
+			break;
+		}
+		else
+		{
+			for each  rec in line_items
+			{
+				Stones_id = rec.get("Stone").get("id");
+				bid_discount = ifNull(rec.get("bid_discount"),0.0).toDecimal();
+				record_id = rec.get("id");
+				record_map = {"id":Stones_id,"Deal_by":recordOwner,"Lead_Source":Lead_Source,"Bid":bid_discount};
+				createlist.add(record_map);
+			}
+		}
+		info createlist.size();
+		if(createlist.size() <= 100 && createlist.size() > 0)
+		{
+			bulk_update = zoho.crm.bulkUpdate("Products",createlist);
+			// 					info bulk_update;
+		}
+		else
+		{
+			newListVar = createlist.subList(0,100);
+			// 					info "New List Size - " + newListVar.size();
+			bulk_update = zoho.crm.bulkUpdate("Products",newListVar);
+			createlist.removeAll(newListVar);
+			bulk_update = zoho.crm.bulkUpdate("Products",createlist);
+			// 					info "Left Stone List Size - " + createlist.size();
+		}
+		pageCounter = pageCounter + 1;
+		numRecords = numRecords + line_items.size();
+	}
+}
+info bulk_update;
+}

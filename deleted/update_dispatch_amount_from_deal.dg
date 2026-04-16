@@ -1,0 +1,73 @@
+string button.update_dispatch_amount_from_deal(String id)
+{
+createlist = List();
+idList = id.toList("|||");
+for each  id in idList
+{
+	deal_details = zoho.crm.getRecordById("Deals",id);
+	// 	deal_Amount = deal_details.get("Amount");
+	deal_transaction = zoho.crm.getRelatedRecords("International_Dispatches","Deals",id);
+	for each  tran in deal_transaction
+	{
+		tran_id = tran.get("id");
+		tran_stones = zoho.crm.getRelatedRecords("Inventory","International_Disptaches",tran_id);
+		if(tran_stones.size() > 0)
+		{
+			Amount = 0.0;
+			for each  Stone in tran_stones
+			{
+				x_inventory_id = Stone.get("id");
+				Stone_id = Stone.get("Stone").get("id");
+				queryMap = Map();
+				queryMap.put("select_query","select id, disc_percent, Net_Amount,bid_discount,Markup,list,List_Total,LSP,MSP,MSP_Total from Deals_X_Inventory where deal_stones.id = '" + id + "' and Stones.id = '" + Stone_id + "' limit 2");
+				response = invokeurl
+				[
+					url :"https://www.zohoapis.com/crm/v7/coql"
+					type :POST
+					parameters:queryMap.toString()
+					connection:"crm"
+				];
+				// 				info response;
+				data = response.get("data");
+				for each  d_X_I in data
+				{
+					disc_percent = ifNull(d_X_I.get("disc_percent"),"");
+					total_amount = ifNull(d_X_I.get("Net_Amount"),0.0).toDecimal();
+					Amount = total_amount + Amount;
+					Bid_Discount = ifNull(d_X_I.get("bid_discount"),0.0).toDecimal();
+					Markup = ifNull(d_X_I.get("Markup"),0.0);
+					llist = ifNull(d_X_I.get("list"),0.0);
+					List_Total = ifNull(d_X_I.get("List_Total"),0.0).toDecimal();
+					LSP = ifNull(d_X_I.get("LSP"),0.0).toDecimal();
+					MSP = ifNull(d_X_I.get("MSP"),0.0);
+					MSP_Total = ifNull(d_X_I.get("MSP_Total"),0.0).toDecimal();
+					recordMap1 = {"id":x_inventory_id,"bid_discount":Bid_Discount,"list":llist,"List_Total":List_Total,"LSP":LSP,"Markup":Markup,"MSP":MSP,"MSP_Total":MSP_Total,"disc_percent":disc_percent};
+					createlist.add(recordMap1);
+				}
+			}
+		}
+	}
+}
+info "Stone Size - " + createlist.size();
+iterations = "".leftpad(60 - 1).toList("");
+for each  iteration in iterations
+{
+	if(createlist.size() == 0)
+	{
+		break;
+	}
+	// 		for less than 100 records ...................
+	else if(createlist.size() <= 100 && createlist.size() > 0)
+	{
+		bulk_create = zoho.crm.bulkUpdate("Dispatch_X_Inventory",createlist);
+		break;
+	}
+	else if(createlist.size() > 100)
+	{
+		newListVar = createlist.subList(0,100);
+		bulk_create = zoho.crm.bulkUpdate("Dispatch_X_Inventory",newListVar);
+		createlist.removeAll(newListVar);
+	}
+}
+return "Amount Updated";
+}

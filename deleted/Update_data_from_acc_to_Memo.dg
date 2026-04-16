@@ -1,0 +1,41 @@
+void automation.Update_data_from_acc_to_Memo(Int id)
+{
+a = zoho.crm.getRecordById("Quotes",id);
+// info a;
+Account_Name = a.getJson("Account_Name").getJSON("id");
+info Account_Name;
+get_acc = zoho.crm.getRecordById("Accounts",Account_Name);
+// info get_acc;
+GST_Number = get_acc.getJson("GST_Number");
+info GST_Number;
+Subform_address = get_acc.getJson("Address_Section");
+// info Subform_address;
+for each  rec in Subform_address
+{
+	checktrue = rec.getJson("Main_Address");
+	info checktrue;
+	if(checktrue == true)
+	{
+		street = rec.getJson("Address");
+		info street;
+		State = rec.getJson("State");
+		info State;
+		Country = rec.getJson("Country");
+		info Country;
+		City = rec.getJson("City");
+		info City;
+		Pincode = rec.getJson("Pincode");
+		info Pincode;
+	}
+}
+mp = Map();
+mp.put("GSTN",GST_Number);
+mp.put("Shipping_Street",street);
+mp.put("Shipping_State",State);
+mp.put("Shipping_City",City);
+mp.put("Shipping_Country",Country);
+mp.put("Shipping_Code",Pincode);
+info mp;
+upd = zoho.crm.updateRecord("Quotes",id,mp,{"trigger":{"workflow"}});
+info upd;
+}

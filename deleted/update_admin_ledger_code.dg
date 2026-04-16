@@ -1,0 +1,12 @@
+void automation.update_admin_ledger_code(Int acc_id)
+{
+acc = zoho.crm.getRecordById("Accounts",acc_id);
+if(acc.get("ledger_code") != "")
+{
+	info acc.get("ledger_code");
+	mp = Map();
+	mp.put("admin_ledger_code",acc.get("ledger_code"));
+	update = zoho.crm.updateRecord("Accounts",acc_id,mp);
+	info update;
+}
+}

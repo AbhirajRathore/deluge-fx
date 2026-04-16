@@ -1,0 +1,190 @@
+void schedule.update_amount_on_sales()
+{
+current_date = zoho.currentdate;
+Ref_Date = current_date.toString("/MMM/yy").toUpperCase();
+// 	Ref_Date = current_date.toStartOfMonth().addDay(dd).toString("dd/MMM/yy").toUpperCase();
+info "CRM REF DATE - " + Ref_Date;
+createlist = list();
+Location = list();
+Location.add("Dubai");
+Location.add("Antwerp");
+Location.add("New York");
+Location.add("India");
+for each  loc in Location
+{
+	info "Processing Location: " + loc;
+	//  We'll group transactions by Ref_No to support multiple CRM rows with same Ref_No.
+	crm_ref_list = list();
+	nextToken = 0;
+	pageSize = 200;
+	iterations = "".leftpad(50).toList("");
+	for each  i in iterations
+	{
+		queryMap = Map();
+		crm_query = "select id from International_Transaction where (Ref_No is not null and Ref_Date like '%" + Ref_Date + "%') and Location = '" + loc + "' limit " + pageSize + " offset " + nextToken;
+		queryMap.put("select_query",crm_query);
+		resp = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v3/coql"
+			type :POST
+			parameters:queryMap.toString()
+			connection:"crm"
+		];
+		info resp;
+		if(resp != "")
+		{
+			for each  record in resp.get("data")
+			{
+				rec_id = record.get("id");
+				crm_ref_list.add(rec_id);
+			}
+			if(resp.containsKey("info") && resp.get("info").containsKey("more_records") && resp.get("info").get("more_records") == true)
+			{
+				nextToken = nextToken + pageSize;
+			}
+			else
+			{
+				break;
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+	info "Count of CRM Sales in " + loc + " :- " + crm_ref_list.size();
+	for each  main_rec_id in crm_ref_list
+	{
+		nextToken = 0;
+		pageSize = 200;
+		iterations = "".leftpad(50).toList("");
+		for each  i in iterations
+		{
+			queryMap = Map();
+			crm_query = "select id, Stone.out_per_carat, Stone.carat  from Transaction_X_Inventory where Transaction.id = '" + main_rec_id + "' and Stone.tran_status = 'INVOICE' limit " + pageSize + " offset " + nextToken;
+			queryMap.put("select_query",crm_query);
+			resp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v3/coql"
+				type :POST
+				parameters:queryMap.toString()
+				connection:"crm"
+			];
+			if(resp != "")
+			{
+				for each  record in resp.get("data")
+				{
+					rec_id = record.get("id");
+					Rate = ifNull(record.get("Stone.out_per_carat").toString(),"");
+					carat = ifNull(record.get("Stone.carat"),0.0);
+					rec_map = {"id":rec_id,"Rate":Rate,"Carat":carat};
+					createlist.add(rec_map);
+				}
+				if(resp.containsKey("info") && resp.get("info").containsKey("more_records") && resp.get("info").get("more_records") == true)
+				{
+					nextToken = nextToken + pageSize;
+				}
+				else
+				{
+					break;
+				}
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+	// bullk update Sales Transactions
+	info "Update SXI Count: " + createlist.size();
+	iterations = "".leftpad(5000).toList("");
+	for each  i in iterations
+	{
+		if(createlist.isEmpty())
+		{
+			break;
+		}
+		if(createlist.size() > 100)
+		{
+			batch = createlist.subList(0,100);
+		}
+		else
+		{
+			batch = createlist;
+		}
+		bulkResp = zoho.crm.bulkUpdate("Transaction_X_Inventory",batch);
+		createlist.removeAll(batch);
+	}
+	// Now Update Sales 
+	createlist = list();
+	for each  main_rec_id in crm_ref_list
+	{
+		Amount = 0;
+		T_Carat = 0;
+		n = 0;
+		nextToken = 0;
+		pageSize = 200;
+		iterations = "".leftpad(50).toList("");
+		for each  i in iterations
+		{
+			queryMap = Map();
+			crm_query = "select id, Net_Amount, Carat  from Transaction_X_Inventory where Transaction.id = '" + main_rec_id + "' limit " + pageSize + " offset " + nextToken;
+			queryMap.put("select_query",crm_query);
+			resp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v3/coql"
+				type :POST
+				parameters:queryMap.toString()
+				connection:"crm"
+			];
+			if(resp != "")
+			{
+				for each  record in resp.get("data")
+				{
+					rec_id = record.get("id");
+					Net_Amount = record.get("Net_Amount");
+					Carat = record.get("Carat");
+					Amount = Amount + Net_Amount;
+					T_Carat = T_Carat + Carat;
+					n = n + resp.get("data").size();
+				}
+				if(resp.containsKey("info") && resp.get("info").containsKey("more_records") && resp.get("info").get("more_records") == true)
+				{
+					nextToken = nextToken + pageSize;
+				}
+				else
+				{
+					break;
+				}
+			}
+			else
+			{
+				break;
+			}
+		}
+		rec_map = {"id":main_rec_id,"Amount":Amount,"total_carat":T_Carat,"quantity":n};
+		createlist.add(rec_map);
+	}
+	// info createlist;
+	// bullk update
+	info "Update Sales Count: " + createlist.size();
+	iterations = "".leftpad(5000).toList("");
+	for each  i in iterations
+	{
+		if(createlist.isEmpty())
+		{
+			break;
+		}
+		if(createlist.size() > 100)
+		{
+			batch = createlist.subList(0,100);
+		}
+		else
+		{
+			batch = createlist;
+		}
+		bulkResp = zoho.crm.bulkUpdate("International_Transaction",batch);
+		createlist.removeAll(batch);
+	}
+}
+}

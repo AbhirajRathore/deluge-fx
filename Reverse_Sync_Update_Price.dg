@@ -1,0 +1,191 @@
+string standalone.Reverse_Sync_Update_Price(String Ref_Date,String CRM_Ref_Date,String location_code)
+{
+try 
+{
+	iteration = "".leftPad(1).toList("");
+	for each  dt in iteration
+	{
+		nivid_fromDate = Ref_Date;
+		nivid_toDate = Ref_Date;
+		loc_map_str = standalone.get_variable_value("config_locations","","");
+		// 	info loc_map_str;
+		loc_list = loc_map_str.toList();
+		// add other locations if needed
+		for each  loc in loc_list
+		{
+			stone_loc = loc.get("location_code");
+			if(stone_loc != location_code)
+			{
+				continue;
+			}
+			try 
+			{
+				loc_name = loc.get("location_name");
+				nivid_token = loc.get("token");
+				base_api = standalone.get_variable_value("config_api",stone_loc,"url");
+				info "Processing Location: " + loc_name;
+				header = Map();
+				header.put("Authorization","Bearer " + nivid_token);
+				header.put("Content-Type","application/json");
+				view_name = "v_crm_reverse_sync_price";
+				// 				criteria = "TO_DATE(MASTER_SALE_DATE) BETWEEN TO_DATE('" + nivid_fromDate + "') AND TO_DATE('" + nivid_toDate + "')  AND SALE_TYPE IN ('LOCAL SALE','CONSIGNMENT SALE','EXPORT') AND TRANSACTION_TYPE = 'RT' AND P_TYPE != 'MIX' and IS_RETURN = 'N' Order by MASTER_SALE_DATE, SALE_NO, BARCODE";
+				criteria = "TO_DATE(MASTER_SALE_DATE) BETWEEN TO_DATE('" + nivid_fromDate + "') AND TO_DATE('" + nivid_toDate + "')  AND SALE_TYPE IN ('LOCAL SALE','CONSIGNMENT SALE','EXPORT','DEEMED EXPORT','CONSIGNMENT EXPORT SALE') AND TRANSACTION_TYPE = 'RT' AND P_TYPE != 'MIX' Order by MASTER_SALE_DATE, SALE_NO, BARCODE";
+				url = base_api + "/CRM/dynamic-query-data" + "?Name=" + view_name + "&Criteria=" + encodeUrl(criteria);
+				sale_resp = invokeurl
+				[
+					url :url
+					type :GET
+					headers:header
+				];
+				// 				info sale_resp;
+				if(sale_resp == null)
+				{
+					continue;
+				}
+				sale_resp = sale_resp.get("Data");
+				// Key: SALE_NO + "_" + BARCODE
+				nivid_sales_map = Map();
+				nivid_sale_no_list = List();
+				for each  sale_row in sale_resp
+				{
+					sale_no = sale_row.get("SALE_NO").toString();
+					barcode = sale_row.get("BARCODE").toString();
+					key = sale_no + "_" + barcode;
+					valueMap = Map();
+					valueMap.put("RATE",ifnull(sale_row.get("RATE"),0.0).toDecimal().round(2));
+					valueMap.put("OUT_PER",ifnull(sale_row.get("OUT_PER"),0.0).toDecimal().round(2));
+					valueMap.put("DEAL_ID",ifnull(sale_row.get("DEAL_ID"),0).toLong());
+					valueMap.put("IS_RETURN",sale_row.get("IS_RETURN"));
+					nivid_sales_map.put(key,valueMap);
+					// collect unique sale numbers
+					if(!nivid_sale_no_list.contains(sale_no))
+					{
+						nivid_sale_no_list.add(sale_no);
+					}
+				}
+				createlist = list();
+				// 									info nivid_sales_map.size();
+				// 								info nivid_sale_no_list.size();
+				for each  nivid_sale_no in nivid_sale_no_list
+				{
+					pageSize = 200;
+					nextToken = 0;
+					iterations = "".leftpad(50).toList("");
+					for each  i in iterations
+					{
+						queryMap = Map();
+						crm_query = "select id, Stone.Product_Name,Total_Discount, Rate, MSP, deal_id.id,return_status from Transaction_X_Inventory where Transaction.Ref_No = '" + nivid_sale_no + "' and Stone.Product_Name is not null limit " + pageSize + "offset " + nextToken;
+						queryMap.put("select_query",crm_query);
+						crm_stones_resp = invokeurl
+						[
+							url :"https://www.zohoapis.com/crm/v3/coql"
+							type :POST
+							parameters:queryMap.toString()
+							connection:"crm"
+						];
+						if(crm_stones_resp != null && crm_stones_resp != "")
+						{
+							for each  st in crm_stones_resp.get("data")
+							{
+								barcode = st.get("Stone.Product_Name").toString();
+								txi_id = st.get("id");
+								key = nivid_sale_no + "_" + barcode;
+								nivid_row = nivid_sales_map.get(key);
+								if(nivid_row != null)
+								{
+									nivid_rate = nivid_row.get("RATE");
+									nivid_out_per = nivid_row.get("OUT_PER");
+									nivid_deal_id = nivid_row.get("DEAL_ID").toLong();
+									nivid_return_status = nivid_row.get("IS_RETURN");
+									if(nivid_return_status = "Y")
+									{
+										nivid_return_status = "Sales Return";
+									}
+									else
+									{
+										nivid_return_status = "";
+									}
+									crm_deal_id = st.get("deal_id.id");
+									if(nivid_deal_id == 0)
+									{
+										nivid_deal_id = crm_deal_id;
+									}
+									crm_rate = ifnull(st.get("Rate"),0).round(2);
+									crm_msp = ifnull(st.get("MSP"),0).toDecimal().round(2);
+									crm_return_status = ifnull(st.get("return_status"),"");
+									Total_Discount = ifnull(st.get("Total_Discount"),0).toDecimal().round(2);
+									if(nivid_rate != crm_rate || nivid_out_per != Total_Discount || nivid_deal_id != crm_deal_id || nivid_return_status != crm_return_status)
+									{
+										recordMap = Map();
+										recordMap.put("id",txi_id);
+										recordMap.put("Rate",nivid_rate.toString());
+										recordMap.put("deal_id",nivid_deal_id.toString());
+										recordMap.put("return_status",nivid_return_status.toString());
+										diff = nivid_out_per - crm_msp;
+										if(diff > 0)
+										{
+											recordMap.put("Markup",diff);
+										}
+										else if(diff < 0)
+										{
+											recordMap.put("disc_percent",diff.toString());
+										}
+										createlist.add(recordMap);
+									}
+								}
+							}
+							if(crm_stones_resp.containsKey("info") && crm_stones_resp.get("info").containsKey("more_records") && crm_stones_resp.get("info").get("more_records") == true)
+							{
+								nextToken = nextToken + pageSize;
+							}
+							else
+							{
+								break;
+							}
+						}
+						else
+						{
+							break;
+						}
+					}
+				}
+				info "Update List: " + createlist.size();
+				// 				info "Update List: " + createlist;
+				iterations = "".leftpad(200).toList("");
+				for each  i in iterations
+				{
+					if(createlist.isEmpty())
+					{
+						break;
+					}
+					if(createlist.size() > 100)
+					{
+						batch = createlist.subList(0,100);
+					}
+					else
+					{
+						batch = createlist;
+					}
+					bulkResp = zoho.crm.bulkUpdate("Transaction_X_Inventory",batch,{"trigger":{"workflow"}});
+					createlist.removeAll(batch);
+				}
+			}
+			catch (e)
+			{
+				newline = hextoText("0A");
+				resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Reverse Sync Failed - " + loc_name + " - " + Ref_Date + newline + e,"cliq");
+				info resp;
+				continue;
+			}
+		}
+		// end location loop
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Reverse Sync Failed - " + loc_name + " - " + Ref_Date + newline + e,"cliq");
+	info resp;
+}
+return "";
+}

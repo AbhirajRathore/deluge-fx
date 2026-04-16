@@ -1,0 +1,43 @@
+void automation.Update_Account_Address_one_address(Int AccountID)
+{
+GetAccountData = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v7/Accounts/" + AccountID
+	type :GET
+	connection:"crm"
+];
+if(GetAccountData.get("data").size() > 0 && GetAccountData.get("data").getJSON("Address_Section").size() > 1)
+{
+	AddressData = GetAccountData.get("data").getJSON("Address_Section");
+	ModifiedTimeList = List();
+	for each  rec in AddressData
+	{
+		ModifiedTimeList.add(rec.get("Created_Time"));
+	}
+	if(ModifiedTimeList.size() > 0)
+	{
+		LastedEnrty = ModifiedTimeList.sort(false).get(0);
+		updatemaplist = List();
+		for each  rec1 in AddressData
+		{
+			if(rec1.get("Created_Time") == LastedEnrty)
+			{
+				updatemap = Map();
+				updatemap.put("Main_Address",ifnull(rec1.get("Main_Address"),""));
+				updatemap.put("Address",ifnull(rec1.get("Address"),""));
+				updatemap.put("State",ifnull(rec1.get("State"),""));
+				updatemap.put("Address_Type",ifnull(rec1.get("Address_Type"),""));
+				updatemap.put("Country",ifnull(rec1.get("Country"),""));
+				updatemap.put("City",ifnull(rec1.get("City"),""));
+				updatemap.put("Pincode",ifnull(rec1.get("Pincode"),""));
+				updatemaplist.add(updatemap);
+				break;
+			}
+		}
+		updatemap1 = Map();
+		updatemap1.put("Address_Section",updatemaplist);
+	}
+}
+updatemap1.put("nivid_subform_address_check",false);
+resvp1 = zoho.crm.updateRecord("Accounts",AccountID,updatemap1);
+}

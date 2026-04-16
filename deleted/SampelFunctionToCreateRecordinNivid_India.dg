@@ -1,0 +1,88 @@
+string standalone.SampelFunctionToCreateRecordinNivid_India(String KYCID)
+{
+NividToken = zoho.crm.getOrgVariable("nivid_india_token");
+NividURl = zoho.crm.getOrgVariable("nivid_india_url");
+resvp = zoho.crm.getRecordById("KYC",KYCID);
+Nivid_Record_Create = resvp.get("Nivid_Record_Create");
+if(Nivid_Record_Create == false)
+{
+	PARTY_NAME_ = ifnull(resvp.get("Party_Name"),"");
+	if(PARTY_NAME_ == "")
+	{
+		return "Party Name Is Mandatory, Please Provide the Party Name";
+	}
+	PARTY_TYPE_ = ifnull(resvp.get("Party_Type"),"");
+	if(PARTY_TYPE_ == "")
+	{
+		return "Party Type Is Mandatory, Please Provide the Party Name";
+	}
+	CreteMap = Map();
+	CreteMap.put("PARTY_NAME_",PARTY_NAME_);
+	CreteMap.put("PARTY_TYPE_",PARTY_TYPE_);
+	CreteMap.put("PAN_",ifnull(resvp.get("PAN"),null));
+	CreteMap.put("PAN_",ifnull(resvp.get("PAN"),null));
+	CreteMap.put("BUS_CONSTITUTION_",ifnull(resvp.get("Business_Constitution"),null));
+	CreteMap.put("BUS_REG_NO_",ifnull(resvp.get("Business_Registration_Number_CIN1"),null));
+	CreteMap.put("BUS_NATURE_ACT_",ifnull(resvp.get("Nature_of_Business_Activity	"),null));
+	CreteMap.put("WEBSITE_",ifnull(resvp.get("Website"),null));
+	CreteMap.put("PEROMO_NAME_1_",ifnull(resvp.get("Organization_Name"),null));
+	CreteMap.put("GST_NO_",ifnull(resvp.get("GST_Number1"),null));
+	CreteMap.put("BANKER_NAME_",ifnull(resvp.get("Banker_s_name"),null));
+	CreteMap.put("AC_NO_",ifnull(resvp.get("account_number	"),null));
+	CreteMap.put("IFSC_CODE_",ifnull(resvp.get("ifsc_code"),null));
+	CreteMap.put("BANK_ADD_",ifnull(resvp.get("bank_address"),null));
+	CreteMap.put("KYC_PERSON_",ifnull(resvp.get("KYC_Person"),null));
+	CreteMap.put("IS_KYC_","Y");
+	CreteMap.put("KYC_STATUS_",ifnull(resvp.get("KYC_Status"),null));
+	CreteMap.put("FILENAME_",null);
+	CreteMap.put("USERID_",ifnull(resvp.get("User_ID"),null));
+	CreteMap.put("MODIFIEDTIME_",null);
+	CreteMap.put("IPADDRESS_","192.168.1.5555");
+	CreteMap.put("IS_MSME_",ifnull(resvp.get("IS_MSME"),null));
+	CreteMap.put("MSME_REGNO_",ifnull(resvp.get("Registration_Number1"),null));
+	CreteMap.put("MSME_TYPE_",ifnull(resvp.get("MSME_Type"),null));
+	CreteMap.put("MSME_FIN_YEAR_",null);
+	CreteMap.put("GST_DATE_",null);
+	CreteMap.put("ADDRESSTYPE_","Billing");
+	CreteMap.put("ADDRESS_",ifnull(resvp.get("Registered_Address"),null));
+	CITYNAME_ = ifnull(resvp.get("city"),null);
+	if(CITYNAME_ == null)
+	{
+		return "City Name Is Mandatory, Please Provide the Party Name";
+	}
+	CreteMap.put("CITYNAME_",CITYNAME_);
+	PINCODE_ = ifnull(resvp.get("Pincode"),null);
+	if(PINCODE_ == null)
+	{
+		return "Pincode Is Mandatory, Please Provide the Party Name";
+	}
+	CreteMap.put("PINCODE_",PINCODE_.toString());
+	heardermap = Map();
+	heardermap.put("content-type","application/json");
+	heardermap.put("Authorization","Bearer " + NividToken);
+	CreateKYCNIvid = invokeurl
+	[
+		url :NividURl + "/api/nivid/kyc"
+		type :POST
+		parameters:CreteMap.toString()
+		headers:heardermap
+	];
+	if(CreateKYCNIvid.get("result") == "SUCCESS")
+	{
+		updatemap = Map();
+		updatemap.put("Nivid_Record_Create",true);
+		resvp1 = zoho.crm.updateRecord("KYC",KYCID,updatemap);
+	}
+	else
+	{
+		info "Error Message ------------->";
+		return CreateKYCNIvid;
+	}
+	info CreateKYCNIvid;
+}
+else
+{
+	Message = "Record is Already Created!";
+}
+return "";
+}

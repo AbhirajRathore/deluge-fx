@@ -1,0 +1,171 @@
+void schedule.update_not_in_nivid_entry_type_of_transaction()
+{
+current_date = zoho.currenttime;
+info current_date;
+try 
+{
+	info "Update Entry Type of Sales for Deleted Sales Started";
+	fromDate = current_date.toStartOfMonth().toString("yyyy-MM-dd") + "T00:00:00+05:30";
+	toDate = current_date.addDay(2).toString("yyyy-MM-dd") + "T23:59:59+05:30";
+	info "From Date - " + fromDate;
+	info "To Date - " + toDate;
+	user_list = list();
+	userMap = Map();
+	all_users = zoho.crm.getRecords("users").get("users");
+	for each  u in all_users
+	{
+		if(u.get("Nivid_Sales_Person_Name") != null)
+		{
+			userMap.put(u.get("Nivid_Sales_Person_Name"),u.get("id"));
+			user_list.add("'" + u.get("Nivid_Sales_Person_Name") + "'");
+		}
+	}
+	Location = list();
+	Location.add("Dubai");
+	Location.add("Antwerp");
+	Location.add("New York");
+	for each  loc in Location
+	{
+		info "Processing Location: " + loc;
+		// Fetch CRM Variables
+		variableMap = Map();
+		varResp = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v5/settings/variables"
+			type :get
+			connection:"zohocrm"
+		];
+		for each  v in varResp.get("variables")
+		{
+			variableMap.put(v.get("api_name"),v.get("value"));
+		}
+		// Set variables based on location
+		if(loc == "Dubai")
+		{
+			nivid_url = variableMap.get("nivid_dubai_url");
+			nivid_token = variableMap.get("nivid_dubai_token");
+			stone_loc = "DXB";
+		}
+		else if(loc == "Antwerp")
+		{
+			nivid_url = variableMap.get("nivid_antwerp_url");
+			nivid_token = variableMap.get("nivid_antwerp_token");
+			stone_loc = "ANT";
+		}
+		else if(loc == "New York")
+		{
+			nivid_url = variableMap.get("nivid_ny_url");
+			nivid_token = variableMap.get("nivid_antwerp_token");
+			stone_loc = "NY";
+		}
+		// Get Existing CRM Ref_Nos for this location
+		crm_ref_list = list();
+		crm_ref_map = Map();
+		nextToken = 0;
+		iterations = "".leftpad(50).toList("");
+		for each  i in iterations
+		{
+			queryMap = Map();
+			crm_query = "select id, Ref_No from International_Transaction where ((Ref_No is not null and Created_Time between '" + fromDate + "' and '" + toDate + "') and (Location = '" + loc + "')) limit 200 offset " + nextToken;
+			queryMap.put("select_query",crm_query);
+			resp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v3/coql"
+				type :POST
+				parameters:queryMap.toString()
+				connection:"crm"
+			];
+			if(resp.get("data") != null)
+			{
+				for each  record in resp.get("data")
+				{
+					ref = record.get("Ref_No");
+					sale_id = record.get("id");
+					if(ref.contains("/"))
+					{
+						ref = ref.getSuffix("/").getPrefix("/");
+					}
+					if(crm_ref_map.containsKey(ref))
+					{
+						temp_list = crm_ref_map.get(ref);
+						temp_list.add(sale_id);
+						crm_ref_map.put(ref,temp_list);
+					}
+					else
+					{
+						temp_list = list();
+						temp_list.add(sale_id);
+						crm_ref_map.put(ref,temp_list);
+					}
+					crm_ref_list.add(ref.toString());
+				}
+			}
+			// Pagination handling
+			if(resp.containsKey("info") && resp.get("info").containsKey("more_records") && resp.get("info").get("more_records") == true)
+			{
+				nextToken = nextToken + 200;
+			}
+			else
+			{
+				break;
+			}
+		}
+		// Fetch deleted sales from NIVID
+		header = Map();
+		query = "select distinct a.sysinvno from trad_hst_lot a where a.entry_mode='D'";
+		url_encode = encodeUrl(query);
+		header.put("Authorization","Bearer " + nivid_token);
+		header.put("Content-Type","application/json");
+		sale_resp = invokeurl
+		[
+			url :nivid_url + "/api/experiment/q?query=" + url_encode
+			type :GET
+			headers:header
+		];
+		nivid_sale_list = list();
+		for each  sale in sale_resp
+		{
+			nivid_sale_list.add(sale.get("SYSINVNO").toString());
+		}
+		// Find deleted sales that exist in CRM
+		nivid_sale_list = nivid_sale_list.intersect(crm_ref_list);
+		info "Sales to update for " + loc + ": " + nivid_sale_list.size();
+		// Prepare bulk update list
+		bulk_update_list = list();
+		for each  sale_ref in nivid_sale_list
+		{
+			if(crm_ref_map.containsKey(sale_ref))
+			{
+				for each  id_val in crm_ref_map.get(sale_ref)
+				{
+					single_record = Map();
+					single_record.put("id",id_val);
+					single_record.put("Entry_Type","Not In NIVID (Deleted)");
+					bulk_update_list.add(single_record);
+				}
+			}
+		}
+		// Safe loop to process all records in batches of 100
+		loopList = "".leftpad((bulk_update_list.size() / 100).ceil()).toList("");
+		for each  i in loopList
+		{
+			if(bulk_update_list.size() == 0)
+			{
+				break;
+			}
+			subList = bulk_update_list.subList(0,if(bulk_update_list.size() > 100,100,bulk_update_list.size()));
+			update_resp = zoho.crm.bulkUpdate("International_Transaction",subList);
+			info "Bulk update response: " + update_resp.size();
+			bulk_update_list.removeAll(subList);
+			// remove updated records
+		}
+	}
+}
+catch (e)
+{
+	newLine = hexToText("0A");
+	errorMsg = "Update Entry Type FAILED for one of the locations:" + loc + newLine + "Error: " + e.toString();
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983",errorMsg,"cliq");
+	info resp;
+}
+}

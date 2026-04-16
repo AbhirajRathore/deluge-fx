@@ -1,0 +1,71 @@
+void automation.update_related_accounts(Int acc_id)
+{
+try 
+{
+	crm_env_url = standalone.get_variable_value("config_api","crm_env","url");
+	account = zoho.crm.getRecordById("Accounts",acc_id);
+	credit = ifNull(account.get("Credit_Limit"),0.0);
+	target = ifNull(account.get("S_Target"),0.0);
+	terms = ifNull(account.get("S_Terms"),0);
+	markup = ifNull(account.get("Markup"),0);
+	parent = account.get("Parent_Account");
+	updateList = list();
+	if(parent != null)
+	{
+		info "Parent Account Found!";
+		parent_id = parent.get("id");
+		mp = Map();
+		mp.put("id",parent_id);
+		mp.put("Credit_Limit",credit);
+		mp.put("S_Target",target);
+		mp.put("S_Terms",terms);
+		mp.put("Markup",markup);
+		updateList.add(mp);
+		mem_resp = zoho.crm.getRelatedRecords("Child_Accounts","Accounts",parent_id);
+		if(mem_resp.size() > 0)
+		{
+			for each  mem_acc in mem_resp
+			{
+				mem_id = mem_acc.get("id");
+				mp = Map();
+				mp.put("id",mem_id);
+				mp.put("Credit_Limit",credit);
+				mp.put("S_Target",target);
+				mp.put("S_Terms",terms);
+				mp.put("Markup",markup);
+				updateList.add(mp);
+			}
+		}
+	}
+	else
+	{
+		info "No Parent Account Found";
+		mem_resp = zoho.crm.getRelatedRecords("Child_Accounts","Accounts",acc_id);
+		if(mem_resp.size() > 0)
+		{
+			info "Parents Member Account Found";
+			for each  mem_acc in mem_resp
+			{
+				mem_id = mem_acc.get("id");
+				mp = Map();
+				mp.put("id",mem_id);
+				mp.put("Credit_Limit",credit);
+				mp.put("S_Target",target);
+				mp.put("S_Terms",terms);
+				mp.put("Markup",markup);
+				updateList.add(mp);
+			}
+		}
+	}
+	info "Update Size = " + updateList.size();
+	update_acc = zoho.crm.bulkUpdate("Accounts",updateList);
+	info "Bulk Update = " + update_acc;
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Update Related Account Failed." + newline + " Accounts - " + crm_env_url + "/tab/Accounts/" + acc_id + " " + newline + newline + "" + e,"cliq");
+	info e;
+	// 	info resp;
+}
+}

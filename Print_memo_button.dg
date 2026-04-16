@@ -1,0 +1,708 @@
+string button.Print_memo_button(String dis_id)
+{
+try 
+{
+	dispatch_details = zoho.crm.getRecordById("International_Disptaches",dis_id);
+	Ref_No = ifNull(dispatch_details.get("Ref_No"),"");
+	Ref_Date = ifNull(dispatch_details.get("Ref_Date"),"");
+	Terms = ifNull(dispatch_details.get("Terms"),0);
+	dis_Description = ifNull(dispatch_details.get("Description"),"");
+	Account = dispatch_details.get("Account_Name").get("name");
+	con_id = dispatch_details.get("Contact_Name").get("id");
+	con_name = dispatch_details.get("Contact_Name").get("name");
+	con_details = zoho.crm.getRecordById("Contacts",con_id);
+	con_owner = con_details.get("Owner").get("name");
+	Phone = ifNull(con_details.get("Phone"),"");
+	Email = ifNull(con_details.get("Email"),"");
+	acc_id = dispatch_details.get("Account_Name").get("id");
+	acc_details = zoho.crm.getRecordById("Accounts",acc_id);
+	billing_address = ifNull(dispatch_details.get("Billing_Street"),acc_details.get("factory_address"));
+	shipping_address = ifNull(dispatch_details.get("Shipping_Street"),acc_details.get("factory_address"));
+	Fax = ifNull(acc_details.get("Phone"),"");
+	Name = dispatch_details.get("Name");
+	Location = dispatch_details.get("Location");
+	info Location;
+	if(Location == "India")
+	{
+		iterations = "".leftpad(20 - 1).toList("");
+		pageCounter = 1;
+		numRecords = 0;
+		total_of_back = 0;
+		total_carat = 0;
+		for each  iteration in iterations
+		{
+			page = pageCounter;
+			perPage = 200;
+			Inventory = zoho.crm.getRelatedRecords("Inventory","International_Disptaches",dis_id,page,perPage);
+			if(Inventory.size() == 0)
+			{
+				break;
+			}
+			else
+			{
+				for each  stones in Inventory
+				{
+					stone_id = stones.get("Stone").get("id");
+					stone_name = stones.get("Stone").get("name");
+					pro = zoho.crm.getRecordById("Products",stone_id);
+					carat = ifNull(pro.get("carat"),0.0);
+					back_total = ifNull(pro.get("msp_total"),0.0);
+					total_of_back = total_of_back + back_total;
+					total_carat = total_carat + carat;
+				}
+			}
+			pageCounter = pageCounter + 1;
+			numRecords = numRecords + Inventory.size();
+		}
+		mp = Map();
+		mp.put("quantity",numRecords);
+		mp.put("total_carat",total_carat);
+		mp.put("Total_Back",total_of_back);
+		mp.put("Item_Name",stone_name);
+		info mp;
+		update_resp = zoho.crm.updateRecord("International_Disptaches",dis_id,mp);
+		openUrl("https://crm.zoho.com/crm/org821143611/Template.do?step=previewPop&entityId=" + dis_id + "&module=CustomModule6&action=print&tIdx=10&relParentId=&TotalNotesCount=0&currentCount=3&model=detailPanel","new window");
+		return mp + " - Print Preview is opened in a new tab";
+	}
+	else if(Location == "New York")
+	{
+		shipped_by = ifNull(dispatch_details.get("shipped_by"),"");
+		if(shipped_by == "")
+		{
+			return "Please add Delivery Instructions";
+		}
+		if(Ref_Date != "")
+		{
+			Ref_Date = Ref_Date.toDate("dd/MMM/yy").toString("MM/dd/yyyy");
+		}
+		newLine = hexToText("0A");
+		resource_id = "shsdrb2500f4ed601447c9b6e188c314a338d";
+		// create_workbook ============================================================
+		paramMap = Map();
+		paramMap.put('method','workbook.createfromtemplate');
+		paramMap.put('resource_id',resource_id);
+		paramMap.put('workbook_name',Name + " - " + Account + " - " + today.tostring("MM-dd-yyyy"));
+		paramMap.put('parent_id','h1ru0197fabc9ddc3454e862386f01bd5730e');
+		create_workbook = invokeurl
+		[
+			url :"https://sheet.zoho.com/api/v2/createfromtemplate"
+			type :POST
+			parameters:paramMap
+			connection:"sheet_connection"
+		];
+		workbook_name = create_workbook.get("workbook_name");
+		resource_id = create_workbook.get("resource_id");
+		workbook_url = create_workbook.get("workbook_url");
+		info "workbook_url - " + workbook_url;
+		info "Recourse ID - " + resource_id;
+		// 	create_workbook END 
+		// Add Lot IDs in the Excel......................
+		total_pcs = 0.0;
+		total_carat = 0.0;
+		total_discount = 0.0;
+		total_price = 0.0;
+		total_usd = 0.0;
+		start_no = 1;
+		dataList = List();
+		iterations = "".leftpad(20 - 1).toList("");
+		pageCounter = 1;
+		for each  iteration in iterations
+		{
+			page = pageCounter;
+			perPage = 200;
+			International_Stones = zoho.crm.getRelatedRecords("Inventory","International_Disptaches",dis_id,page,perPage);
+			if(International_Stones.size() == 0)
+			{
+				break;
+			}
+			else
+			{
+				for each  dxi_stones in International_Stones
+				{
+					stone_id = dxi_stones.get("Stone").get("id");
+					stone_name = dxi_stones.get("Stone").get("name");
+					color = ifNull(dxi_stones.get("Color"),"");
+					if(color == "D" || color == "E" || color == "F" || color == "G" || color == "H" || color == "I" || color == "J" || color == "K" || color == "L" || color == "M" || color == "N")
+					{
+						RapValue = ifNull(dxi_stones.get("List_Total"),0.0).toDecimal();
+						Total_Discount = ifNull(dxi_stones.get("Total_Discount"),0.0).toDecimal();
+					}
+					else
+					{
+						RapValue = ifNull(dxi_stones.get("MSP_Total"),0.0).toDecimal();
+						Total_Discount = 0.0;
+					}
+					Net_Amount = ifNull(dxi_stones.get("Net_Amount"),0.0);
+					stones = zoho.crm.getRecordById("Products",stone_id);
+					Carat = ifNull(stones.get("carat"),0.0).toDecimal();
+					price_per_carat = Net_Amount / Carat;
+					shape = ifNull(stones.get("shape"),"");
+					clarity = ifNull(stones.get("clarity"),"");
+					amount = RapValue - RapValue * Total_Discount.abs() / 100;
+					Description = shape + " " + color + " " + clarity;
+					lab = ifNull(stones.get("lab"),"");
+					llist = ifNull(dxi_stones.get("list"),0.0).toDecimal();
+					certificate_no = ifNull(stones.get("certificate_no"),"");
+					// Total Calculation
+					total_pcs = total_pcs + 1;
+					total_carat = total_carat + Carat;
+					total_discount = total_discount + Total_Discount;
+					total_price = total_price + RapValue;
+					total_usd = total_usd + amount;
+					// MAP =============================
+					dataMap1 = Map();
+					dataMap1.put('LotID',stone_name);
+					dataMap1.put('NO.',start_no);
+					dataMap1.put('Description',Description);
+					dataMap1.put('Lab',lab);
+					dataMap1.put('Clarity',clarity);
+					dataMap1.put('Cert No',certificate_no);
+					dataMap1.put('Color',color);
+					dataMap1.put('Pcs',1);
+					dataMap1.put('List',llist);
+					dataMap1.put('Carats',Carat.toString());
+					dataMap1.put('(-%)',Total_Discount.toString());
+					dataMap1.put('Price',price_per_carat.round(2).toString());
+					dataMap1.put('TOTAL USD',Net_Amount.round(2).toString());
+					dataList.add(dataMap1);
+					start_no = start_no + 1;
+				}
+			}
+			pageCounter = pageCounter + 1;
+		}
+		// 	 headerData = Map();
+		//  headerData.put("header_row",20);
+		//  headerData.put("row",21);
+		// 	 response = zoho.sheet.createRecords(resource_id,"Sheet1", dataList, headerData, "sheet_connection");
+		// 	 info response;
+		// 	info dataList;
+		if(dataList.size() <= 20)
+		{
+			paramMap = Map();
+			paramMap.put('method','worksheet.jsondata.insert');
+			paramMap.put('worksheet_name','Sheet1');
+			paramMap.put('row',26);
+			paramMap.put('header_row',24);
+			paramMap.put('json_data',dataList);
+			info paramMap;
+			response = invokeurl
+			[
+				url :"https://sheet.zoho.com/api/v2/" + resource_id
+				type :POST
+				parameters:paramMap
+				connection:"sheet_connection"
+			];
+			info response;
+			status = response.get("status");
+			if(status == "failure")
+			{
+				return response.get("error_message");
+			}
+		}
+		else
+		{
+			row_count = 26;
+			stone_iterations = "".leftpad(20 - 1).toList("");
+			for each  stone_iteration in stone_iterations
+			{
+				if(dataList.size() > 20)
+				{
+					newListVar = dataList.subList(0,20);
+					paramMap = Map();
+					paramMap.put('method','worksheet.jsondata.insert');
+					paramMap.put('worksheet_name','Sheet1');
+					paramMap.put('row',row_count);
+					paramMap.put('header_row',24);
+					paramMap.put('json_data',newListVar);
+					info paramMap;
+					response = invokeurl
+					[
+						url :"https://sheet.zoho.com/api/v2/" + resource_id
+						type :POST
+						parameters:paramMap
+						connection:"sheet_connection"
+					];
+					info response;
+					if(status == "failure")
+					{
+						return response.get("error_message");
+					}
+					dataList.removeAll(newListVar);
+					row_count = row_count + 20;
+				}
+				else
+				{
+					paramMap = Map();
+					paramMap.put('method','worksheet.jsondata.insert');
+					paramMap.put('worksheet_name','Sheet1');
+					paramMap.put('row',row_count);
+					paramMap.put('header_row',24);
+					paramMap.put('json_data',dataList);
+					info paramMap;
+					response = invokeurl
+					[
+						url :"https://sheet.zoho.com/api/v2/" + resource_id
+						type :POST
+						parameters:paramMap
+						connection:"sheet_connection"
+					];
+					info response;
+					if(status == "failure")
+					{
+						return response.get("error_message");
+					}
+					break;
+				}
+			}
+		}
+		// =======================================
+		// Add Data to Cell.......................
+		paramMap = Map();
+		paramMap.put('method','cells.content.set');
+		// Account Name - Bill to
+		dataList = List();
+		dataMap1 = Map();
+		dataMap1.put('worksheet_id',"0#");
+		dataMap1.put('content',Account);
+		dataMap1.put('row',8);
+		dataMap1.put('column',1);
+		dataList.add(dataMap1);
+		// Billing Address
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',billing_address);
+		dataMap2.put('row',9);
+		dataMap2.put('column',1);
+		dataList.add(dataMap2);
+		// Account Name - Ship to
+		dataMap3 = Map();
+		dataMap3.put('worksheet_id',"0#");
+		dataMap3.put('content',Account);
+		dataMap3.put('row',8);
+		dataMap3.put('column',9);
+		dataList.add(dataMap3);
+		// Shipping Address
+		dataMap4 = Map();
+		dataMap4.put('worksheet_id',"0#");
+		dataMap4.put('content',shipping_address);
+		dataMap4.put('row',9);
+		dataMap4.put('column',9);
+		dataList.add(dataMap4);
+		// Location
+		dataMap5 = Map();
+		dataMap5.put('worksheet_id',"0#");
+		dataMap5.put('content',Location);
+		dataMap5.put('row',11);
+		dataMap5.put('column',3);
+		dataList.add(dataMap5);
+		// Phone
+		dataMap6 = Map();
+		dataMap6.put('worksheet_id',"0#");
+		dataMap6.put('content',Phone);
+		dataMap6.put('row',12);
+		dataMap6.put('column',3);
+		dataList.add(dataMap6);
+		// Fax
+		dataMap7 = Map();
+		dataMap7.put('worksheet_id',"0#");
+		dataMap7.put('content',Fax);
+		dataMap7.put('row',13);
+		dataMap7.put('column',3);
+		dataList.add(dataMap7);
+		// Contact Name
+		dataMap8 = Map();
+		dataMap8.put('worksheet_id',"0#");
+		dataMap8.put('content',con_name);
+		dataMap8.put('row',16);
+		dataMap8.put('column',3);
+		dataList.add(dataMap8);
+		// Discription
+		dataMap9 = Map();
+		dataMap9.put('worksheet_id',"0#");
+		dataMap9.put('content',dis_Description);
+		dataMap9.put('row',18);
+		dataMap9.put('column',3);
+		dataList.add(dataMap9);
+		// Terms
+		dataMap10 = Map();
+		dataMap10.put('worksheet_id',"0#");
+		dataMap10.put('content',Terms + " Days");
+		dataMap10.put('row',20);
+		dataMap10.put('column',3);
+		dataList.add(dataMap10);
+		// Ref Date
+		dataMap11 = Map();
+		dataMap11.put('worksheet_id',"0#");
+		dataMap11.put('content',today.addDay(Terms).tostring("MM-dd-YYYY"));
+		dataMap11.put('row',21);
+		dataMap11.put('column',3);
+		dataList.add(dataMap11);
+		// Ref Number
+		dataMap12 = Map();
+		dataMap12.put('worksheet_id',"0#");
+		dataMap12.put('content',Ref_No);
+		dataMap12.put('row',12);
+		dataMap12.put('column',9);
+		dataList.add(dataMap12);
+		// Date
+		dataMap13 = Map();
+		dataMap13.put('worksheet_id',"0#");
+		// 		dataMap13.put('content',today.tostring("MM-dd-YYYY"));
+		dataMap13.put('content',Ref_Date);
+		dataMap13.put('row',13);
+		dataMap13.put('column',11);
+		dataList.add(dataMap13);
+		// Salesperson
+		dataMap14 = Map();
+		dataMap14.put('worksheet_id',"0#");
+		dataMap14.put('content',con_owner);
+		dataMap14.put('row',14);
+		dataMap14.put('column',11);
+		dataList.add(dataMap14);
+		// Email
+		dataMap15 = Map();
+		dataMap15.put('worksheet_id',"0#");
+		dataMap15.put('content',Email);
+		dataMap15.put('row',14);
+		dataMap15.put('column',2);
+		dataList.add(dataMap15);
+		// Frieght
+		/*
+		dataMap16 = Map();
+		dataMap16.put('worksheet_id',"0#");
+		dataMap16.put('content',ifNull(dispatch_details.get("Freight"),0.0));
+		dataMap16.put('row',32);
+		dataMap16.put('column',11);
+		dataList.add(dataMap16);
+		// Other Charges
+		dataMap17 = Map();
+		dataMap17.put('worksheet_id',"0#");
+		dataMap17.put('content',ifNull(dispatch_details.get("Other_Charges"),0.0));
+		dataMap17.put('row',31);
+		dataMap17.put('column',11);
+		dataList.add(dataMap17);
+		// Insurance
+		dataMap18 = Map();
+		dataMap18.put('worksheet_id',"0#");
+		dataMap18.put('content',ifNull(dispatch_details.get("Insurance"),0.0));
+		dataMap18.put('row',33);
+		dataMap18.put('column',11);
+		dataList.add(dataMap18);
+		*/
+		// Total psc
+		// 		dataMap15 = Map();
+		// 		dataMap15.put('worksheet_id',"0#");
+		// 		dataMap15.put('content',total_pcs);
+		// 		dataMap15.put('row',22);
+		// 		dataMap15.put('column',9);
+		// 		dataList.add(dataMap15);
+		// 		// Total Carat
+		// 		dataMap16 = Map();
+		// 		dataMap16.put('worksheet_id',"0#");
+		// 		dataMap16.put('content',total_carat);
+		// 		dataMap16.put('row',22);
+		// 		dataMap16.put('column',10);
+		// 		dataList.add(dataMap16);
+		// 		// Total Discount
+		// 		dataMap17 = Map();
+		// 		dataMap17.put('worksheet_id',"0#");
+		// 		avg_dis = total_discount / total_pcs;
+		// 		dataMap17.put('content',avg_dis.round(2));
+		// 		dataMap17.put('row',22);
+		// 		dataMap17.put('column',4);
+		// 		dataList.add(dataMap17);
+		// Total Price
+		// 				dataMap18 = Map();
+		// 				dataMap18.put('worksheet_id',"0#");
+		// 				dataMap18.put('content',total_price.round(2));
+		// 				dataMap18.put('row',22);
+		// 				dataMap18.put('column',5);
+		// 				dataList.add(dataMap18);
+		// Total USD
+		// 		dataMap19 = Map();
+		// 		dataMap19.put('worksheet_id',"0#");
+		// 		dataMap19.put('content',total_usd.round(2));
+		// 		dataMap19.put('row',29);
+		// 		dataMap19.put('column',11);
+		// 		dataList.add(dataMap19);
+		// DELIVERY INSTRUCTIONS
+		dataMap20 = Map();
+		dataMap20.put('worksheet_id',"0#");
+		dataMap20.put('content',shipped_by + " ✓");
+		dataMap20.put('row',18);
+		dataMap20.put('column',9);
+		dataList.add(dataMap20);
+		info dataList;
+		paramMap.put('data',dataList);
+		response = invokeurl
+		[
+			url :"https://sheet.zoho.com/api/v2/" + resource_id
+			type :POST
+			parameters:paramMap
+			connection:"sheet_connection"
+		];
+		info response;
+		if(status == "failure")
+		{
+			return response.get("error_message");
+		}
+		// 			paramMap = Map();
+		// 			paramMap.put('method', 'workbook.download');
+		// 			paramMap.put('format', 'pdf');
+		// 			paramMap.put('worksheet_name', 'sheet1');
+		// 			dataMap = Map();
+		// 			dataMap.put('print_type', "SHEET");
+		// 			dataMap.put('scale', 3);
+		// 			dataMap.put('add_gridlines', false);
+		// 			dataMap.put('align_hcenter', true);
+		// // 			dataMap.put('margin_left', 0.5);
+		// // 			dataMap.put('margin_right', 0.5);
+		// // 			dataMap.put('margin_top', 1.5);
+		// // 			dataMap.put('margin_bottom', 1.5);
+		// 			dataMap.put('page_order', "downOver");
+		// 			paramMap.put('page_settings', dataMap);
+		// 			response =  invokeurl 
+		// 			[
+		// 			url: "https://sheet.zoho.com/api/v2/download/"+ resource_id
+		// 			parameters: paramMap
+		// 			type: POST
+		// 			connection: "sheet_connection"
+		// 			];
+		// 			info response;
+		// 			info  zoho.crm.attachFile("International_Disptaches", dis_id, response);
+		openUrl(workbook_url,"new window");
+		return "URL Opened In New Tab, Please make Sure POPUP is ON.";
+	}
+	else if(Location == "Dubai")
+	{
+		resource_id = "m696la613cc9f36f24d7aa07074342688e3e2";
+		// create_workbook ============================================================
+		paramMap = Map();
+		paramMap.put('method','workbook.createfromtemplate');
+		paramMap.put('resource_id',resource_id);
+		paramMap.put('workbook_name',Name + " - " + Account + " - " + today.tostring("MM-dd-yyyy"));
+		paramMap.put('parent_id','h1ru0197fabc9ddc3454e862386f01bd5730e');
+		create_workbook = invokeurl
+		[
+			url :"https://sheet.zoho.com/api/v2/createfromtemplate"
+			type :POST
+			parameters:paramMap
+			connection:"sheet_connection"
+		];
+		workbook_name = create_workbook.get("workbook_name");
+		resource_id = create_workbook.get("resource_id");
+		workbook_url = create_workbook.get("workbook_url");
+		info "workbook_url - " + workbook_url;
+		info "Recourse ID - " + resource_id;
+		// 	create_workbook END 
+		total_carat = 0.0;
+		total_usd = 0.0;
+		iterations = "".leftpad(20 - 1).toList("");
+		pageCounter = 1;
+		for each  iteration in iterations
+		{
+			page = pageCounter;
+			perPage = 200;
+			International_Stones = zoho.crm.getRelatedRecords("Inventory","International_Disptaches",dis_id,page,perPage);
+			if(International_Stones.size() == 0)
+			{
+				break;
+			}
+			else
+			{
+				for each  stones in International_Stones
+				{
+					stone_id = stones.get("Stone").get("id");
+					stone_name = stones.get("Stone").get("name");
+					color = ifNull(stones.get("Color"),"");
+					if(color == "D" || color == "E" || color == "F" || color == "G" || color == "H" || color == "I" || color == "J" || color == "K" || color == "L" || color == "M" || color == "N")
+					{
+						RapValue = ifNull(stones.get("List_Total"),0.0).toDecimal();
+					}
+					else
+					{
+						RapValue = ifNull(stones.get("MSP_Total"),0.0).toDecimal();
+					}
+					Total_Discount = ifNull(stones.get("Total_Discount"),0.0).toDecimal();
+					stones = zoho.crm.getRecordById("Products",stone_id);
+					Carat = ifNull(stones.get("carat"),0.0).toDecimal();
+					shape = ifNull(stones.get("shape"),"");
+					clarity = ifNull(stones.get("clarity"),"");
+					amount = RapValue - RapValue * Total_Discount.abs() / 100;
+					total_carat = total_carat + Carat;
+					total_usd = total_usd + amount;
+					if(stones.get("country_of_origin") != null)
+					{
+						country_of_origin = ifNull(stones.get("country_of_origin"),"");
+					}
+				}
+			}
+			pageCounter = pageCounter + 1;
+		}
+		paramMap = Map();
+		paramMap.put('method','cells.content.set');
+		// Account Name - Bill to
+		dataList = List();
+		dataMap1 = Map();
+		dataMap1.put('worksheet_id',"0#");
+		dataMap1.put('content',Account);
+		dataMap1.put('row',8);
+		dataMap1.put('column',1);
+		dataList.add(dataMap1);
+		// Billing Address
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',billing_address);
+		dataMap2.put('row',10);
+		dataMap2.put('column',1);
+		dataList.add(dataMap2);
+		// Country
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',Location);
+		dataMap2.put('row',11);
+		dataMap2.put('column',8);
+		dataList.add(dataMap2);
+		// Phone
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',Phone);
+		dataMap2.put('row',12);
+		dataMap2.put('column',8);
+		dataList.add(dataMap2);
+		// Doc No:
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',dis_id);
+		dataMap2.put('row',8);
+		dataMap2.put('column',9);
+		dataList.add(dataMap2);
+		// Date:
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',today.tostring("MM-dd-yyyy"));
+		dataMap2.put('row',9);
+		dataMap2.put('column',9);
+		dataList.add(dataMap2);
+		/*
+		// Shipped By:
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',Phone);
+		dataMap2.put('row',8);
+		dataMap2.put('column',10);
+		dataList.add(dataMap2);
+		// Insured By:
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',Phone);
+		dataMap2.put('row',8);
+		dataMap2.put('column',10);
+		dataList.add(dataMap2);
+		*/
+		// AMOUNT IN USD - Polished Natural Diamonds
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',total_usd.round(2).toString());
+		dataMap2.put('row',19);
+		dataMap2.put('column',7);
+		dataList.add(dataMap2);
+		// AMOUNT IN USD - Total
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',total_usd.round(2).toString());
+		dataMap2.put('row',20);
+		dataMap2.put('column',7);
+		dataList.add(dataMap2);
+		// AMOUNT IN USD - Grand Total
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',total_usd.round(2).toString());
+		dataMap2.put('row',21);
+		dataMap2.put('column',7);
+		dataList.add(dataMap2);
+		Amount_in_AED = 3.6725 * total_usd;
+		// AMOUNT IN AED - Polished Natural Diamonds
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',"AED " + Amount_in_AED.round(2));
+		dataMap2.put('row',19);
+		dataMap2.put('column',9);
+		dataList.add(dataMap2);
+		// AMOUNT IN AED - Total
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',"AED " + Amount_in_AED.round(2));
+		dataMap2.put('row',20);
+		dataMap2.put('column',9);
+		dataList.add(dataMap2);
+		// AMOUNT IN AED - Grand Total
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',"AED " + Amount_in_AED.round(2));
+		dataMap2.put('row',21);
+		dataMap2.put('column',9);
+		dataList.add(dataMap2);
+		// Carat - Polished Natural Diamonds
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',total_carat);
+		dataMap2.put('row',19);
+		dataMap2.put('column',5);
+		dataList.add(dataMap2);
+		// Carat - Total
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',total_carat);
+		dataMap2.put('row',20);
+		dataMap2.put('column',5);
+		dataList.add(dataMap2);
+		// Split amount into integer and decimal parts
+		int_part = floor(total_usd);
+		dec_part = (total_usd - int_part) * 100;
+		dec_part = dec_part.round(0);
+		// Convert to words using toWords()
+		int_words = int_part.toWords("en-us");
+		amount_in_words = int_words;
+		if(dec_part > 0)
+		{
+			dec_words = dec_part.toWords("en-us");
+			amount_in_words = "US DOLLAR " + amount_in_words + " & " + dec_words + " Cents Only";
+		}
+		// Amount in Words
+		dataMap2 = Map();
+		dataMap2.put('worksheet_id',"0#");
+		dataMap2.put('content',amount_in_words.toUpperCase());
+		dataMap2.put('row',23);
+		dataMap2.put('column',1);
+		dataList.add(dataMap2);
+		paramMap.put('data',dataList);
+		response = invokeurl
+		[
+			url :"https://sheet.zoho.com/api/v2/" + resource_id
+			type :POST
+			parameters:paramMap
+			connection:"sheet_connection"
+		];
+		info response;
+		if(status == "failure")
+		{
+			return response.get("error_message");
+		}
+		openUrl(workbook_url,"new window");
+		return "URL Opened In New Tab, Please make Sure POPUP is ON.";
+	}
+	else
+	{
+		return "Memo template is not avaliable for " + Location + " Location!";
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","function - Creating MEMO FAILED for NY." + newline + "Dispatch - https://crm.zoho.com/crm/org821143611/tab/CustomModule6/" + dis_id + " " + newline + e,"cliq");
+	info resp;
+	return "";
+}
+return "";
+}

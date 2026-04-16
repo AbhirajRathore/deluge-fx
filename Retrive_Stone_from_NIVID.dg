@@ -1,0 +1,64 @@
+string button.Retrive_Stone_from_NIVID(String St_id)
+{
+resp = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v5/settings/variables"
+	type :get
+	connection:"zohocrm"
+];
+variables = resp.get("variables");
+for each  variable in variables
+{
+	api_name = variable.get("api_name");
+	if(api_name == "nivid_india_token")
+	{
+		nivid_india_token = variable.get("value");
+	}
+	else if(api_name == "nivid_india_url")
+	{
+		nivid_india_url = variable.get("value");
+	}
+	else if(api_name == "nivid_dubai_url")
+	{
+		nivid_dubai_url = variable.get("value");
+	}
+	else if(api_name == "nivid_dubai_token")
+	{
+		nivid_dubai_token = variable.get("value");
+	}
+}
+Inventory_details = zoho.crm.getRecordById("Products",St_id);
+Product_Name = Inventory_details.get("Product_Name");
+location = Inventory_details.get("location");
+if(location == null)
+{
+	return "Location field can not be Empty!";
+}
+else if(location == "IND")
+{
+	nivid_url = nivid_india_url;
+	nivid_token = nivid_india_token;
+}
+else if(location == "DXB")
+{
+	nivid_url = nivid_dubai_url;
+	nivid_token = nivid_dubai_token;
+}
+header_data = Map();
+header_data.put("Authorization","Bearer " + nivid_token);
+header_data.put("Content-Type","application/json");
+try 
+{
+	resp = invokeurl
+	[
+		url :nivid_url + "/api/experiment/generate-inventory-events?barcodes=" + Product_Name
+		type :POST
+		headers:header_data
+	];
+}
+catch (e)
+{
+	return "NIVID API is taking longer time, your transaction will be done soon! if not please retry";
+}
+return resp;
+}

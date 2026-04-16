@@ -1,0 +1,40 @@
+void automation.schedule_a_30_days_followUp_call(Int Call_id)
+{
+call_details = zoho.crm.getRecordById("Calls",Call_id);
+info call_details;
+Subject = call_details.get("Subject");
+Owner = call_details.get("Owner").get("id");
+Who_Id = call_details.get("Who_Id");
+if(Who_Id != null)
+{
+	Who_Id = call_details.get("Who_Id").get("id");
+}
+created_time_str = call_details.get("Created_Time");
+info "Original Created_Time: " + created_time_str;
+// Extract time and timezone from the original datetime string
+time_and_zone = created_time_str.getSuffix("T");
+// get time + timezone part
+// e.g., 18:31:08+08:00
+// Get date only, convert to Date object and add business days
+created_date = created_time_str.toDateTime().toDate();
+new_date = created_date.addBusinessDay(30);
+new_date_str = new_date.toString("yyyy-MM-dd");
+// Combine with original time and zone
+final_datetime = new_date_str + "T" + time_and_zone;
+info "Final Call Start Time: " + final_datetime;
+se_module = call_details.get("$se_module");
+What_Id = call_details.get("What_Id").get("id");
+mp = Map();
+mp.put("Subject",Subject);
+mp.put("Owner",5870915000088670001);
+mp.put("Call_Start_Time",final_datetime);
+mp.put("$se_module",se_module);
+mp.put("What_Id",What_Id);
+mp.put("Who_Id",Who_Id);
+mp.put("$which_call","ScheduleCall");
+mp.put("Schedule_Call","Yes");
+mp.put("Call_Type","Outbound");
+create = zoho.crm.createRecord("Calls",mp);
+info mp;
+info create;
+}

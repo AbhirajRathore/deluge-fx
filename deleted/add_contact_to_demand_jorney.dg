@@ -1,0 +1,62 @@
+void automation.add_contact_to_demand_jorney(String dem_id)
+{
+// 	// 	Get Journey Key
+// 	// 	============================
+// 		response = invokeUrl [
+// 		url: "https://marketingautomation.zoho.com/api/v1/journeys"
+// 		type: GET
+// 		connection: "zoho_ma"
+// 		];
+// 		info response;
+// 	// 	============================
+resp_dem = zoho.crm.getRecordById("Add_Demand",dem_id);
+info resp_dem;
+contact = resp_dem.get("contact");
+if(contact != null)
+{
+	con_id = contact.get("id");
+	con_details = zoho.crm.getRecordById("Contacts",con_id);
+	Email = con_details.get("Email");
+	Stones_Count = resp_dem.get("Stones").size();
+	if(Stones_Count > 0)
+	{
+		triggerkey = "3z92157f589f12cb3bbacb59a1545a517dae5a46751bfe9c4711045d4ff02d81bb";
+		// 		3z53c2f11470cc2699064be7972131e9b7d7061895853429635cb71dac196d9039
+		journey_key = "3z0e9a848f0ea80f88f850eb58fce68c25199b8d7c9f1f7f0c41e895d61a62b64b";
+		// 		3z53c2f11470cc2699064be7972131e9b77f68df8d57af26aaee53fd11085e639e
+	}
+	else
+	{
+		triggerkey = "3z66b1ed00abb76651aaf8a0c923f0504ec8bf5c13cdc6b56328b1f6f03464c433";
+		// 		3z53c2f11470cc2699064be7972131e9b7b96a98b61fa6531682d589c113fd764e
+		journey_key = "3z66b1ed00abb76651aaf8a0c923f0504ed5abe52379b2a90645116d4513398cfc";
+		// 		3z53c2f11470cc2699064be7972131e9b7642b9f44bc85374959e0b15192909008
+	}
+	carats = ifNull(resp_dem.get("carats").toString(),"");
+	color = ifNull(resp_dem.get("color").toString(),"");
+	clarity = ifNull(resp_dem.get("clarity").toString(),"");
+	shape = ifNull(resp_dem.get("shape").toString(),"");
+	mp = Map();
+	mp.put("carats",carats);
+	mp.put("color",color);
+	mp.put("clarity",clarity);
+	mp.put("shape",shape);
+	mp.put("Stones_Count",Stones_Count);
+	update = zoho.crm.updateRecord("Contacts",con_id,mp);
+	info update;
+	mp = Map();
+	mp.put("lead_email",Email);
+	mp.put("triggerkey",triggerkey);
+	mp.put("listkey","3z013f5a68238b408dd677764b2d133557571fccf3c3e22cc809dc09ab20ed7edd");
+	details = Map();
+	details.put("details",mp);
+	response = invokeurl
+	[
+		url :"https://marketingautomation.zoho.com/api/v1/journeys/" + journey_key + "/action/trigger"
+		type :POST
+		parameters:details
+		connection:"zoho_ma"
+	];
+	info response;
+}
+}

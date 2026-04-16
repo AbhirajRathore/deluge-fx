@@ -1,0 +1,30 @@
+void automation.send_kyc_status_to_webhook(Int lid)
+{
+kafka_token = standalone.get_variable_value("config_api","kafka","token");
+kafka_url = standalone.get_variable_value("config_api","kafka","url");
+Lead = zoho.crm.getRecordById("Leads",lid);
+user_id = Lead.get("user_id");
+info "User ID - " + user_id;
+kyc_status = Lead.get("KYC_Status");
+info "KYC Status - " + kyc_status;
+if(kyc_status = null)
+{
+	return;
+}
+mp = Map();
+mp.put("customer_id",user_id);
+mp.put("kyc_status",kyc_status);
+mp.put("reason_for_declined",null);
+info mp;
+header = Map();
+header.put("Authorization","Bearer " + kafka_token);
+header.put("Content-Type","application/json");
+response = invokeurl
+[
+	url :kafka_url + "/api/crm/kyc_status"
+	type :POST
+	parameters:mp.toString()
+	headers:header
+];
+info response;
+}

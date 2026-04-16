@@ -1,0 +1,14 @@
+string standalone.invoke_url_for_js(String URL,String BODY,String TOKEN)
+{
+header_data = Map();
+header_data.put("Authorization","Bearer " + TOKEN);
+header_data.put("Content-Type","application/json");
+result = invokeurl
+[
+	url :URL
+	type :POST
+	parameters:BODY
+	headers:header_data
+];
+return result;
+}

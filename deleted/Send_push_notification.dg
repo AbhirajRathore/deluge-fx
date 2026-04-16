@@ -1,0 +1,71 @@
+void automation.Send_push_notification()
+{
+medusa_token = standalone.get_variable_value("config_api","medusa","token");
+medusa_url = standalone.get_variable_value("config_api","medusa","url");
+// lead_details = zoho.crm.getRecordById("Leads",lead_id);
+// Website_User_ID = lead_details.get("user_id");
+Website_User_ID = "cus_01J9TCK3VA8QWPXKVV9QA3DJEF";
+if(Website_User_ID == null)
+{
+	info "user_id not found!";
+	return;
+}
+info "Customer Website ID - " + Website_User_ID;
+header = Map();
+header.put("Cookie","connect.sid=s%3AFyrTJAfPSpmydaavTlPrHQcyTLZ4KoBP.CCNvHxW%2BsvlFRXP%2B8VphooM1mr4yApfdkSzIEYoupgc; connect.sid=s%3AdEHXM0aIQzls7AIRXIjQUchePTbIhSaw.sf8M86J4bSzC9N%2Bzj%2F%2F03s%2FreDcGCXR9%2Bzx5pwnOFqA");
+header.put("Authorization","Bearer " + medusa_token);
+param = Map();
+param.put("customerId",Website_User_ID);
+get_device_id = invokeurl
+[
+	url :medusa_url + "public/customer-device-uuid"
+	type :GET
+	parameters:param
+	headers:header
+];
+info get_device_id;
+/*
+data = get_device_id.get("data");
+if(data != "")
+{
+	info "Device ID - " + data;
+	device_list = list();
+	device_list.add(data);
+	if(data != null)
+	{
+		headers_mp = Map();
+		headers_mp.put("Authorization","Basic OTE2ZGUzODEtNTBmNi00OTFkLTliMzItMjk3YTQ5ZDYxODQ3");
+		headers_mp.put("accept","application/json");
+		headers_mp.put("Content-type","application/json");
+		param_mp = Map();
+		param_mp.put("app_id","378b2db1-01ba-4f45-b8cf-9500ea88056b");
+		param_mp.put("include_player_ids",device_list);
+		// 	param_mp.put("contents",{"en":"✨ This Diwali, Buy with elegance with KGK's exclusive diamond collection! Check it now!🌟"});
+		param_mp.put("mutable_content",true);
+		param_mp.put("data",{"targetPage":"new-arrival:bidStone"});
+		// 	param_mp.put("ios_attachments",{"bg":"https://drive.google.com/file/d/1a_vKTd27FICOM-VFcMv720IosRnW5ae4/view?usp=sharing"});
+		// 	param_mp.put("headings",{"en":"Add Sparkle to Your Diwali!"});
+		param_mp.put("template_id","f75caaeb-7d6c-4da8-b562-6c43c3fbfaf9");
+		response = invokeurl
+		[
+			url :"https://api.onesignal.com/notifications"
+			type :POST
+			parameters:param_mp.toString()
+			headers:headers_mp
+		];
+		info "Param - " + param_mp;
+		info "Header - " + headers_mp;
+		info response;
+		// 	return "Notification sent ID- " + response.get("id");
+	}
+	// else
+	// {
+	// 	return "Device Not Found!";
+	// }
+}
+else
+{
+	info "Device ID not Found!";
+}
+*/
+}

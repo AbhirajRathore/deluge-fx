@@ -1,0 +1,10 @@
+void automation.assign_member_account_kisko1(String acc_list,String acc_id)
+{
+info acc_list;
+idList = acc_list.toList("|||");
+for each  id in acc_list
+{
+	update = zoho.crm.updateRecord("Accounts",id,{"Parent_Account":acc_id});
+	info update;
+}
+}

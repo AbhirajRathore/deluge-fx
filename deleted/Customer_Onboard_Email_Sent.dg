@@ -1,0 +1,37 @@
+void automation.Customer_Onboard_Email_Sent(Int con_id)
+{
+contact_details = zoho.crm.getRecordById("Contacts",con_id);
+Email = contact_details.get("Email");
+if(Email == null)
+{
+	info "Email Not found";
+	return;
+}
+sendfrom = Map();
+sendfrom.put("email","crm.support@kgkmail.com");
+sendto = Map();
+sendto.put("email",Email);
+//nitesh.parihar@kgkmail.com
+tolist = List();
+tolist.add(sendto);
+tempmp = Map();
+tempmp.put("id",5870915000070905254);
+Send_Email_mp = Map();
+Send_Email_mp.put("from",sendfrom);
+Send_Email_mp.put("to",tolist);
+Send_Email_mp.put("template",tempmp);
+Send_Email_mp.put("org_email",true);
+Send_Email_dlist = List();
+Send_Email_dlist.add(Send_Email_mp);
+Send_Email_data = Map();
+Send_Email_data.put("data",Send_Email_dlist);
+// info "Send_Email_data - " + Send_Email_data;
+Send_Email = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v2.1/Contacts/" + con_id + "/actions/send_mail"
+	type :POST
+	parameters:Send_Email_data + ""
+	connection:"zohocrm"
+];
+info "Send_Email - " + Send_Email;
+}

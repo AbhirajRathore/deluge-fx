@@ -1,0 +1,47 @@
+void automation.add_contact_to_post_kyc(String Email,String Type)
+{
+if(Type.contains("Wholesaler"))
+{
+	triggerkey = "3z8a67e18467471bc51647ddf3f02e50ee198bd2a88411730c93463f09c001dd1a";
+	journey_id = "3z8a67e18467471bc51647ddf3f02e50eed944af17cbb3f82285203958328f458a";
+}
+else
+{
+	triggerkey = "3z95d73cc8dcbc346b744726d86916c44a130cc95f7fb181e3d52c388ff62b7449";
+	journey_id = "3z95d73cc8dcbc346b744726d86916c44aa368ee86275c6b6ebe7b0e160bccbf32";
+}
+// 	Get List Key
+// 	===========================
+// 			response = invokeUrl [
+// 			url: "https://marketingautomation.zoho.com/api/v1/getmailinglists"
+// 			type: GET
+// 			connection: "zoho_ma"
+// 			];
+// 			info response;
+// 	Get Journey Key
+// 	============================
+// 			response = invokeUrl [
+// 			url: "https://marketingautomation.zoho.com/api/v1/journeys"
+// 			type: GET
+// 			connection: "zoho_ma"
+// 			];
+// 			info response;
+// 	============================
+// 	Trigger Journey
+// 	============================
+mp = Map();
+mp.put("lead_email",Email);
+mp.put("triggerkey",triggerkey);
+mp.put("listkey","3z013f5a68238b408dd677764b2d133557571fccf3c3e22cc809dc09ab20ed7edd");
+details = Map();
+details.put("details",mp);
+response = invokeurl
+[
+	url :"https://marketingautomation.zoho.com/api/v1/journeys/" + journey_id + "/action/trigger"
+	type :POST
+	parameters:details
+	connection:"zoho_ma"
+];
+info response;
+// 	===========================
+}

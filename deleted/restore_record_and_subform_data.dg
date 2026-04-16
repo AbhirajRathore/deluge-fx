@@ -1,0 +1,109 @@
+void automation.restore_record_and_subform_data(Int id)
+{
+old_dispatch = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v6/Quotes/" + id
+	type :GET
+	connection:"crm"
+];
+data = old_dispatch.get("data");
+// info data;
+create_new_rec = Map();
+Quoted_Items = list();
+for each  rec in data
+{
+	if(rec.get("Account_Name") != null)
+	{
+		create_new_rec.put("Account_Name",ifNull(rec.get("Account_Name").get("id"),""));
+	}
+	if(rec.get("Contact_Name") != null)
+	{
+		create_new_rec.put("Contact_Name",ifNull(rec.get("Contact_Name").get("id"),""));
+	}
+	if(rec.get("Deal_Name") != null)
+	{
+		create_new_rec.put("Deal_Name",ifNull(rec.get("Deal_Name").get("id"),""));
+	}
+	create_new_rec.put("Valid_Until",ifNull(rec.get("Valid_Till"),""));
+	if(rec.get("Broker_Involved") == true)
+	{
+		create_new_rec.put("Broker_Involved",true);
+		// 		create_new_rec.put("Broker_Name",ifNull(rec.get("Broker").get("id"),""));
+		// 		create_new_rec.put("Brokerage",ifNull(rec.get("Brokerage"),""));
+	}
+	create_new_rec.put("Location",ifNull(rec.get("Location"),""));
+	create_new_rec.put("Memo_Type",ifNull(rec.get("Memo_Type"),""));
+	create_new_rec.put("Memo_Category",ifNull(rec.get("Memo_Category"),""));
+	create_new_rec.put("Bank_Rate",ifNull(rec.get("Bank_Rate"),0.0));
+	create_new_rec.put("Stage",ifNull(rec.get("Quote_Stage"),""));
+	create_new_rec.put("Owner",ifNull(rec.get("Owner").get("id"),""));
+	create_new_rec.put("Ref_No",ifNull(rec.get("Ref_No"),""));
+	create_new_rec.put("Ref_Date",ifNull(rec.get("Ref_Date"),""));
+	create_new_rec.put("GSTN",ifNull(rec.get("GSTN"),""));
+	create_new_rec.put("Item_Name",ifNull(rec.get("Item_Name"),""));
+	create_new_rec.put("Shipping_City",ifNull(rec.get("Shipping_City"),""));
+	create_new_rec.put("Shipping_Code",ifNull(rec.get("Shipping_Code"),""));
+	create_new_rec.put("Shipping_Country",ifNull(rec.get("Shipping_Country"),""));
+	create_new_rec.put("Shipping_State",ifNull(rec.get("Shipping_State"),""));
+	create_new_rec.put("Shipping_Street",ifNull(rec.get("Shipping_Street"),""));
+	create_new_rec.put("Description",ifNull(rec.get("Terms_and_Conditions"),""));
+	create_new_rec.put("Layout",5870915000022886150);
+	create_new_rec.put("Total_Stones",rec.get("Quoted_Items").size());
+	create_new_rec.put("Total_Weight",rec.get("Total_Carat"));
+	create_new_rec.put("Old_Dispatch_Created_TIme",rec.get("Created_Time"));
+	subform = rec.get("Quoted_Items");
+}
+create_new = zoho.crm.createRecord("International_Disptaches",create_new_rec);
+new_rec_id = create_new.get("id");
+info "Dispatch ID - " + new_rec_id;
+if(new_rec_id != null)
+{
+	for each  item in subform
+	{
+		Product_id = item.get("Product_Name").get("id");
+		Stone_details = zoho.crm.getRecordById("Products",Product_id);
+		Carat = ifNull(Stone_details.get("carat"),0.0);
+		list1 = ifNull(item.get("list"),Stone_details.get("list"));
+		LAB = ifNull(Stone_details.get("lab"),"");
+		msp_per = abs(ifNull(item.get("MSP"),Stone_details.get("msp_per")));
+		MSP = -1 * msp_per;
+		msp_total = ifNull(item.get("MSP_Total"),Stone_details.get("msp_total"));
+		list_total = ifNull(list1 * Carat,0.0);
+		Tran_Status = ifNull(Stone_details.get("tran_status"),"");
+		Shape = ifNull(Stone_details.get("shape"),"");
+		Clarity = ifNull(Stone_details.get("clarity"),"");
+		Color = ifNull(Stone_details.get("color"),"");
+		CUT = ifNull(Stone_details.get("cut"),"");
+		recordMap1 = {"Stone":Product_id,"Dispatch":new_rec_id,"Carat":Carat,"list":list1,"MSP":MSP,"MSP_Total":msp_total,"List_Total":list_total,"LAB":LAB,"Tran_Status":Tran_Status,"Shape":Shape,"Clarity":Clarity,"Color":Color,"CUT":CUT};
+		Quoted_Items.add(recordMap1);
+	}
+	info "Main Size - " + Quoted_Items;
+	if(Quoted_Items.size() <= 100 && Quoted_Items.size() > 0)
+	{
+		info "Create List is " + Quoted_Items.size();
+		bulk_create = zoho.crm.bulkCreate("Dispatch_X_Inventory",Quoted_Items);
+		for each  bulk in bulk_create
+		{
+			info "Created  " + Quoted_Items.size() + " - " + bulk.get("code");
+			break;
+		}
+	}
+	else if(Quoted_Items.size() > 100)
+	{
+		newListVar = Quoted_Items.subList(0,100);
+		bulk_create = zoho.crm.bulkCreate("Dispatch_X_Inventory",newListVar);
+		for each  bulk in bulk_create
+		{
+			info "Created  " + newListVar.size() + " - " + bulk.get("code");
+			break;
+		}
+		Quoted_Items.removeAll(newListVar);
+		bulk_create = zoho.crm.bulkCreate("Dispatch_X_Inventory",Quoted_Items);
+		for each  bulk in bulk_create
+		{
+			info "Created  " + Quoted_Items.size() + " - " + bulk.get("code");
+			break;
+		}
+	}
+}
+}

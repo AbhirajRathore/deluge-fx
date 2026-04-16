@@ -1,0 +1,307 @@
+string standalone.Send_email_to_accounting_team(String crmAPIRequest)
+{
+try 
+{
+	crm_env_url = standalone.get_variable_value("config_api","crm_env","url");
+	crmAPIRequestMap = crmAPIRequest.toMap();
+	body = crmAPIRequestMap.get("body");
+	info body;
+	New_record_id = body.get("New_record_id");
+	Pipeline = body.get("Pipeline");
+	Module_API = body.get("Module_API");
+	if(Module_API == "International_Disptaches")
+	{
+		record_link = "CustomModule6";
+	}
+	else
+	{
+		record_link = "CustomModule7";
+	}
+	action = body.get("action");
+	resource_id = "h1ru05d63766351a74a2f97b03e2944dc89bd";
+	record_info = zoho.crm.getRecordById(Module_API,New_record_id);
+	owner = record_info.get("Owner").get("id");
+	owner_details = zoho.crm.getRecordById("users",owner);
+	info owner_details;
+	users = owner_details.get("users");
+	for each  user in users
+	{
+		owner_email = user.get("email");
+	}
+	Location = record_info.get("Location");
+	Account_Name = "";
+	if(record_info.get("Account_Name") != null)
+	{
+		Account_Name = record_info.get("Account_Name").get("name");
+	}
+	Bank_Rate = ifNull(record_info.get("Bank_Rate"),0.0);
+	// create_workbook ============================================================
+	paramMap = Map();
+	paramMap.put('method','workbook.createfromtemplate');
+	paramMap.put('resource_id',resource_id);
+	paramMap.put('workbook_name',action + " - " + Account_Name + " - " + today.tostring("MM-dd-yyyy"));
+	paramMap.put('parent_id','h1ru0197fabc9ddc3454e862386f01bd5730e');
+	create_workbook = invokeurl
+	[
+		url :"https://sheet.zoho.com/api/v2/createfromtemplate"
+		type :POST
+		parameters:paramMap
+		connection:"sheet_connection"
+	];
+	workbook_name = create_workbook.get("workbook_name");
+	resource_id = create_workbook.get("resource_id");
+	workbook_url = create_workbook.get("workbook_url");
+	info "workbook_url - " + workbook_url;
+	info "Recourse ID - " + resource_id;
+	// 	create_workbook END ========================================================================
+	// 	Rows List ===================================================
+	dataList = List();
+	iterations = "".leftpad(20 - 1).toList("");
+	pageCounter = 1;
+	numRecords = 0;
+	total_of_back = 0;
+	total_carat = 0;
+	for each  iteration in iterations
+	{
+		page = pageCounter;
+		perPage = 200;
+		International_Stones = zoho.crm.getRelatedRecords("Inventory",Module_API,New_record_id,page,perPage);
+		if(International_Stones.size() == 0)
+		{
+			break;
+		}
+		else
+		{
+			for each  stones in International_Stones
+			{
+				Product_name = stones.get("Stone").get("name");
+				Product_id = stones.get("Stone").get("id");
+				Total_Discount = ifNull(stones.get("Total_Discount"),0.0).toDecimal();
+				prod_details = zoho.crm.getRecordById("Products",Product_id);
+				Shape = ifNull(prod_details.get("shape"),"");
+				size = ifNull(prod_details.get("size"),"");
+				Carat = ifNull(prod_details.get("carat"),0.0);
+				Quantity = ifNull(prod_details.get("Quantity"),"");
+				Clarity = ifNull(prod_details.get("clarity"),"");
+				cut = ifNull(prod_details.get("cut"),"");
+				polish = ifNull(prod_details.get("polish"),"");
+				symmetry = ifNull(prod_details.get("symmetry"),"");
+				fluorescence = ifNull(prod_details.get("fluorescence"),"");
+				lab = ifNull(prod_details.get("lab"),"");
+				width = ifNull(prod_details.get("width"),"");
+				length = ifNull(prod_details.get("length"),"");
+				measurement3 = ifNull(prod_details.get("depth"),"");
+				table = ifNull(prod_details.get("table"),"");
+				depth = ifNull(prod_details.get("depth"),"");
+				list1 = ifNull(prod_details.get("list"),0.0).toDecimal();
+				list_total = ifNull(prod_details.get("list_total"),0.0).toDecimal();
+				lsp_per = ifNull(prod_details.get("lsp_per"),"");
+				lsp = ifNull(prod_details.get("lsp"),"");
+				lsp_total = ifNull(prod_details.get("lsp_total"),"");
+				certificate_no = ifNull(prod_details.get("certificate_no"),"");
+				crown_angle = ifNull(prod_details.get("crown_angle"),"");
+				star_length = ifNull(prod_details.get("star_length"),"");
+				lower_half = ifNull(prod_details.get("lower_half"),"");
+				girdle = ifNull(prod_details.get("girdle"),"");
+				key_to_symbols = ifNull(prod_details.get("key_to_symbols"),"");
+				inscription = ifNull(prod_details.get("inscription"),"");
+				culet = ifNull(prod_details.get("culet"),"");
+				Discount_Rap1 = ifNull(stones.getJson("MSP"),0.0).toDecimal();
+				Rate_In_INR = ifNull(stones.getJson("Rate_INR"),0.0);
+				sale_net_amount = ifNull(stones.getJson("Amount_USD"),0.0);
+				color = ifNull(prod_details.get("color"),"");
+				if(color == "D" || color == "E" || color == "F" || color == "G" || color == "H" || color == "I" || color == "J" || color == "K" || color == "L" || color == "M" || color == "N")
+				{
+					crm_price = 0;
+					Rap = ifNull(stones.get("list"),0.0).toDecimal();
+					RapValue = ifNull(stones.get("List_Total"),0.0).toDecimal();
+				}
+				else
+				{
+					crm_price = ifNull(stones.get("MSP_Total"),0);
+					if(stones.get("MSP_Total") != 0.0)
+					{
+						Rap = stones.get("MSP_Total") / stones.get("Carat");
+					}
+					else
+					{
+						Rap = 0.0;
+					}
+					RapValue = ifNull(stones.get("MSP_Total"),0);
+				}
+				RAP_DISCOUNT = Rap * Total_Discount / 100;
+				PC = Rap + RAP_DISCOUNT;
+				RAP_VALUE_DISCOUNT = RapValue * Total_Discount / 100;
+				value = RapValue + RAP_VALUE_DISCOUNT;
+				back_total = ifNull(prod_details.get("back_total"),0.0);
+				total_of_back = total_of_back + back_total;
+				total_carat = total_carat + Carat;
+				dataMap1 = Map();
+				dataMap1.put('Record Owner',record_info.get("Owner").get("name"));
+				if(record_info.get("Account_Name") != null)
+				{
+					dataMap1.put('Account Name',record_info.get("Account_Name").get("name"));
+				}
+				if(record_info.get("Contact_Name") != null)
+				{
+					dataMap1.put('Contact Name',record_info.get("Contact_Name").get("name"));
+				}
+				if(record_info.get("Broker_Name") != null)
+				{
+					dataMap1.put('Broker Name',record_info.get("Broker_Name").get("name"));
+					dataMap1.put('Brokerage',ifNull(record_info.get("Brokerage"),0.0));
+				}
+				if(record_info.get("Deal_Name") != null)
+				{
+					dataMap1.put('Deal Name',ifNull(record_info.get("Deal_Name").get("name"),""));
+				}
+				dataMap1.put('Terms',ifNull(record_info.get("terms"),0));
+				dataMap1.put('ID',Product_name);
+				dataMap1.put('Shp',Shape);
+				dataMap1.put('Qty',1);
+				dataMap1.put('Cts',Carat);
+				dataMap1.put('Size',size);
+				dataMap1.put('Col',color);
+				dataMap1.put('Cla',Clarity);
+				dataMap1.put('Cut',cut);
+				dataMap1.put('Pol',polish);
+				dataMap1.put('Sym',symmetry);
+				dataMap1.put('Flu',fluorescence);
+				dataMap1.put('Lab',lab);
+				dataMap1.put('Min',width);
+				dataMap1.put('Max',length);
+				dataMap1.put('Depth',measurement3);
+				dataMap1.put('Tab',table);
+				dataMap1.put('Depth%',depth);
+				dataMap1.put('Rap',Rap);
+				dataMap1.put('RapValue',RapValue);
+				dataMap1.put('Disc',Total_Discount);
+				dataMap1.put('$PC',PC);
+				dataMap1.put('$Value',value);
+				dataMap1.put('$ Rate',Bank_Rate);
+				dataMap1.put('₹PC',PC * Bank_Rate);
+				value = value * Bank_Rate;
+				dataMap1.put('₹Value',value.round(2));
+				dataMap1.put('Cert #',certificate_no);
+				dataMap1.put('C.A.',crown_angle);
+				dataMap1.put('ST',star_length);
+				dataMap1.put('LH',lower_half);
+				dataList.add(dataMap1);
+			}
+		}
+		pageCounter = pageCounter + 1;
+		numRecords = numRecords + International_Stones.size();
+	}
+	// 	Rows List ===================================================
+	// 	Add Rows ====================================================
+	info "Number of Stones - " + dataList.size();
+	// Add Rows to Sheet =============================================================================
+	paramMap = Map();
+	paramMap.put('method','worksheet.jsondata.append');
+	paramMap.put('worksheet_name','Sheet1');
+	paramMap.put('header_row',2);
+	paramMap.put('json_data',dataList);
+	add_rows = invokeurl
+	[
+		url :"https://sheet.zoho.com/api/v2/" + resource_id
+		type :POST
+		parameters:paramMap
+		connection:"sheet_connection"
+	];
+	info add_rows;
+	// Add Rows to Sheet =============================================================================
+	mp = Map();
+	if(Module_API == "International_Disptaches")
+	{
+		mp.put("quantity",numRecords);
+		mp.put("total_carat",total_carat);
+		mp.put("Total_Back",total_of_back);
+		mp.put("Item_Name",Product_name);
+	}
+	else
+	{
+		if(Location == "India")
+		{
+			emails_to_send = {{"email":"trupti.malkar@kgkmail.com"},{"email":"abhishek.chauhan@kgkmail.com"},{"email":"aaditya.dhavale@kgkmail.com"}};
+		}
+		else if(Location == "Dubai")
+		{
+			// 			emails_to_send = {{"email":"piyush.mittal@kgkmail.com"},{"email":"Jay.lathigara@kgkmail.com"},{"email":"prajapati.mihir@kgkmail.com"}};
+			emails_to_send = {{"email":"Jay.lathigara@kgkmail.com"},{"email":"prajapati.mihir@kgkmail.com"}};
+		}
+		// 	else if(Location == "Antwerp")
+		// 	{
+		// 		emails_to_send = {{"email":"asmi.vaidya@kgkmail.com"},{"email":"binal.godhani@kgkmail.com"},{"email":"stephanie.dulluog@kgkmail.com"},{"email":"nikita.vda@kgkmail.com"}};
+		// 	}
+		sendfrom = Map();
+		sendfrom.put("email","crm.support@kgkmail.com");
+		sendto = Map();
+		sendto.put("email",owner_email);
+		tolist = List();
+		tolist.add(sendto);
+		tempmp = Map();
+		tempmp.put("id","5870915000008085312");
+	}
+	mp.put("Zoho_Sheet_Link",workbook_url);
+	info mp;
+	update_international_Transaction = zoho.crm.updateRecord(Module_API,New_record_id,mp,{"trigger":{"workflow"}});
+	// 	if(Module_API == "International_Disptaches" && action == "memoOut" && Location == "India")
+	// 	{
+	// 		response = invokeurl
+	// 		[
+	// 			url :"https://www.zohoapis.com/crm/v7/settings/email_templates/5870915000023245013/actions/print_preview?record_id=" + New_record_id + "&print_type=pdf"
+	// 			type :GET
+	// 			connection:"zohocrm"
+	// 		];
+	// 		info response;
+	// 		response.setFileName("Memo.pdf");
+	// 		attach = zoho.crm.attachFile("International_Disptaches",New_record_id,response);
+	// 		info "Memo Attachment - " + attach;
+	// 	}
+	if(Module_API == "International_Transaction" && emails_to_send.size() > 0)
+	{
+		// Send_Email ==========================================================
+		Send_Email_mp = Map();
+		Send_Email_mp.put("from",sendfrom);
+		Send_Email_mp.put("to",tolist);
+		Send_Email_mp.put("cc",emails_to_send);
+		// Send_Email_mp.put("bcc",emails_to_send);
+		Send_Email_mp.put("template",tempmp);
+		Send_Email_mp.put("org_email",true);
+		Send_Email_dlist = List();
+		Send_Email_dlist.add(Send_Email_mp);
+		Send_Email_data = Map();
+		Send_Email_data.put("data",Send_Email_dlist);
+		// info "Send_Email_data - " + Send_Email_data;
+		Send_Email = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v2.1/" + Module_API + "/" + New_record_id + "/actions/send_mail"
+			type :POST
+			parameters:Send_Email_data + ""
+			connection:"zohocrm"
+		];
+		info "Send_Email - " + Send_Email;
+		send_email_data = Send_Email.get("data");
+		for each  res_email in send_email_data
+		{
+			code = res_email.get("code");
+			if(code != "SUCCESS")
+			{
+				message = res_email.get("message");
+				newline = hextoText("0A");
+				resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Email sending failed to Accounting." + newline + Module_API + " - " + crm_env_url + "/tab/CustomModule7/" + New_record_id + newline + "" + message,"cliq");
+				info resp;
+			}
+		}
+		// Send_Email ==========================================================
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","function - Send_email_to_accounting_team has FAILED." + newline + Module_API + " - " + crm_env_url + "/tab/" + record_link + "/" + New_record_id + " " + newline + e,"cliq");
+	info resp;
+	return "";
+}
+return "";
+}

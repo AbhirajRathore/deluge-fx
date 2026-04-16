@@ -1,0 +1,71 @@
+string standalone.Update_Website_order_clear_inventory(String crmAPIRequest)
+{
+try 
+{
+	// 	crmAPIRequest = {"file_content":null,"headers":{"x-murphy-session-id":["2e9d78d8-3a14-441d-bcf0-5f01cea389df"],"x-murphy-tab-id":["ed6abb65-e375-4889-bcb4-c4fcd23a596a"],"lb_request_id":["d51be8fc2e64fa8ccc108e8ca911ac27"],"lb_ssl_remote_ip":["160.202.10.242"],"lb_http_version":["HTTP/2.0"],"lb_client_request_time":["0.000"],"priority":["u=1, i"],"lb_rls":["PASSED"],"x-static-version":["12038150"],"x-client-subversion":["6608d63330640280d487c399c17564bd"],"x-crm-org":["856292109"],"sec-ch-ua":["\"Chromium\";v=\"142\", \"Google Chrome\";v=\"142\", \"Not_A Brand\";v=\"99\""],"x-zoho-service":["widget"],"sec-ch-ua-mobile":["?0"],"sec-ch-ua-platform":["\"macOS\""],"x-murphy-span-id":["cc95d140-bc27-46d6-ad08-2fad6c58fb74"],"x-my-normurl":["crm.tab.module.entity.canvas"],"x-zoho-service-details":["{\"widget_id\":\"5870915000022884995\",\"widget_name\":\"Deal%20Stones\"}"],"x-murphy-trace-id":["ed6abb65-e375-4889-bcb4-c4fcd23a596a"],"sec-fetch-dest":["empty"]},"auth_type":"oauth","method":"POST","user_info":{"zgid":856292109,"org_info":{"name":"KGK Group","id":856292109,"time_zone":"Asia/Kolkata"},"country":"in","time_format":"hh:mm a","name":"Abhiraj Rathore","id":5870915000036472001,"time_zone":"Asia/Dubai","email":"abhiraj.rathore@kgkmail.com","zuid":"839769404"},"record":{},"params":{"arguments":"{\"barcodes\":[\"1774221\",\"215494853\"]}"},"body":null};
+	update_list = list();
+	stn_lst = crmAPIRequest.get("params").get("arguments").get("barcodes");
+	if(stn_lst.size() > 0)
+	{
+		for each  stn in stn_lst
+		{
+			info stn;
+			queryMap = Map();
+			queryMap.put("select_query","SELECT id FROM Products WHERE Product_Name = " + stn + " limit 2000 offset 0");
+			response = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v4/coql"
+				type :POST
+				body:queryMap.toString()
+				connection:"crm"
+			];
+			if(response != null)
+			{
+				if(response.get("data").size() > 0)
+				{
+					for each  stn in response.get("data")
+					{
+						Stone_id = stn.get("id");
+						record_map = {"id":Stone_id,"Bid":"","Lead_Source":"","Platform":"","Deal_by":"","deal_id":"","Contact_Name":""};
+						update_list.add(record_map);
+					}
+				}
+			}
+		}
+		if(update_list.size() > 0)
+		{
+			iterations = "".leftpad(200).toList("");
+			for each  iteration in iterations
+			{
+				if(update_list.size() == 0)
+				{
+					break;
+				}
+				// 		for less than 100 records ...................
+				else if(update_list.size() <= 100 && update_list.size() > 0)
+				{
+					bulk_update = zoho.crm.bulkUpdate("Products",update_list);
+					break;
+				}
+				else if(update_list.size() > 100)
+				{
+					newListVar = update_list.subList(0,100);
+					bulk_update = zoho.crm.bulkUpdate("Products",newListVar);
+					update_list.removeAll(newListVar);
+				}
+			}
+		}
+	}
+	else
+	{
+		info "No Barcode Found";
+	}
+}
+catch (e)
+{
+	info e;
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","function - Update_Website_order_clear_inventory." + newline + e,"cliq");
+}
+return "";
+}

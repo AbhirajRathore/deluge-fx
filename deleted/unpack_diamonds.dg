@@ -1,0 +1,133 @@
+string button.unpack_diamonds(String id)
+{
+resp = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v5/settings/variables"
+	type :get
+	connection:"zohocrm"
+];
+// info resp;
+variables = resp.get("variables");
+for each  variable in variables
+{
+	api_name = variable.get("api_name");
+	if(api_name == "nivid_india_token")
+	{
+		nivid_india_token = variable.get("value");
+	}
+	else if(api_name == "nivid_india_url")
+	{
+		nivid_india_url = variable.get("value");
+	}
+}
+a = invokeurl
+[
+	url :"https://crm.zoho.com/crm/v3/Deals/" + id
+	type :GET
+	connection:"crm"
+];
+// info a;
+Account_Name = a.getJson("data").getJSON("Account_Name").getJSON("name");
+info Account_Name;
+Stones = a.getJson("data").getJson("Stones");
+info Stones;
+s = List();
+for each  rec1 in Stones
+{
+	rec = rec1.getJson("Stones").getJSON("name");
+	info rec;
+	search = zoho.crm.searchRecords("Products","(Product_Name:equals:" + rec + ")");
+	info "search----->" + search;
+	proname = search.getJson("Product_Name");
+	info proname;
+	WEIGHT = search.getJson("carat");
+	info WEIGHT;
+	Department = search.getJSON("department_code");
+	info Department;
+	rate_dollar = search.getJson("rate_dollar");
+	LISTTOTAL = search.getJson("list_total");
+	info LISTTOTAL;
+	profit_center = search.getJson("profit_center");
+	info profit_center;
+	mp = Map();
+	if(LISTTOTAL == null)
+	{
+		mp.put("amount_dollar",0);
+	}
+	else
+	{
+		mp.put("amount_dollar",LISTTOTAL);
+	}
+	mp.put("barcode",proname);
+	if(WEIGHT == null)
+	{
+		mp.put("carat",0);
+	}
+	else
+	{
+		mp.put("carat",WEIGHT);
+	}
+	if(rate_dollar == null)
+	{
+		mp.put("rate_dollar",0);
+	}
+	else
+	{
+		mp.put("rate_dollar",rate_dollar);
+	}
+	mp.put("department_code",Department);
+	if(profit_center == null)
+	{
+		mp.put("profit_center","BBMFG-ST");
+	}
+	else
+	{
+		mp.put("profit_center",profit_center);
+	}
+	s.add(mp);
+}
+header_data1 = Map();
+header_data1.put("content-type","application/json");
+exc = invokeurl
+[
+	url :nivid_india_url + "/api/nivid/dollar-exchange-rate"
+	type :GET
+	headers:header_data1
+];
+info exc;
+exe = exc.getJson("dollar_exchange_rate");
+main_map = Map();
+main_map.put("selected_stones",s);
+main_map.put("party_name",Account_Name);
+main_map.put("exchange_bank_rate",exe);
+main_map.put("gross_amount_dollar",WEIGHT * rate_dollar);
+main_map.put("remark","CRM TEST REMARK");
+main_map.put("status","PENDING");
+main_map.put("un_pack",true);
+main_map.put("return_invoice_num",5555);
+info main_map;
+header_data = Map();
+header_data.put("Authorization","Bearer " + nivid_india_token);
+header_data.put("Content-Type","application/json");
+resp = invokeurl
+[
+	url :nivid_india_url + "/api/nivid/pack-unpack-stones"
+	type :POST
+	parameters:main_map.toString()
+	headers:header_data
+];
+info resp;
+if(resp.contains("ref"))
+{
+	m = Map();
+	m.put("Stone_Status","Unpack");
+	upd = zoho.crm.updateRecord("Deals",id,m);
+	info upd;
+	return " Stone got Unpacked" + resp;
+}
+else
+{
+	return "Error" + resp;
+}
+// {"trigger":{"workflow"}}
+}

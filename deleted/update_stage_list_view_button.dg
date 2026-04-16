@@ -1,0 +1,12 @@
+string button.update_stage_list_view_button(String id)
+{
+idList = id.toList("|||");
+for each  id in idList
+{
+	mp = Map();
+	mp.put("Stage","Closed Won");
+	// 	mp.put("Reason_For_Loss__s","Deal Discontinued");
+	update_deal = zoho.crm.updateRecord("Deals",id,mp);
+}
+return "Size - " + idList.size();
+}

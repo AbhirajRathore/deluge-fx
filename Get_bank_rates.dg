@@ -1,0 +1,59 @@
+void schedule.Get_bank_rates()
+{
+resp_variable = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v5/settings/variables"
+	type :get
+	connection:"zohocrm"
+];
+variables = resp_variable.get("variables");
+for each  variable in variables
+{
+	api_name = variable.get("api_name");
+	if(api_name == "Rates")
+	{
+		Rates = variable.get("value").toMap();
+	}
+}
+info Rates;
+EUR = Rates.get("EUR");
+AED = Rates.get("AED");
+info "EUR - " + EUR;
+info "AED - " + AED;
+resp = invokeurl
+[
+	url :"https://currencyapi.net/api/v1/rates?key=z9EUOsShR6X3P8yhzcYPq5cfUDkDQJL44C31&output=JSON"
+	type :GET
+];
+info resp;
+INR_rates = resp.get("rates").get("INR").round(4);
+mp = Map();
+mp.put("EUR",EUR);
+mp.put("AED",AED);
+mp.put("INR",INR_rates);
+// Get Variables..............................
+// response = invokeurl
+// [
+// 	url: "https://www.zohoapis.com/crm/v7/settings/variables"
+// 	type: GET
+// 	connection:"zohocrm"
+// ];
+// info response;
+// 	Update Variables...........................
+// 	aed_rate
+variable1 = Map();
+variable1.put("id","5870915000055899262");
+variable1.put("value",mp);
+variables_list = List();
+variables_list.add(variable1);
+param = Map();
+param.put("variables",variables_list);
+response = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v7/settings/variables"
+	type :PUT
+	parameters:param.toString()
+	connection:"zohocrm"
+];
+info response;
+}

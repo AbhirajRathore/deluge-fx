@@ -1,0 +1,252 @@
+string button.onboard_customer_lead(String id)
+{
+try 
+{
+	lead_details = zoho.crm.getRecordById("Leads",id);
+	user_id = lead_details.get("user_id");
+	if(user_id.isEmpty())
+	{
+		resp = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v5/settings/variables"
+			type :get
+			connection:"zohocrm"
+		];
+		variables = resp.get("variables");
+		medusa_api_url = "";
+		medusa_token = "";
+		for each  variable in variables
+		{
+			api_name = variable.get("api_name");
+			if(api_name == "medusa_api_url")
+			{
+				medusa_api_url = variable.get("value");
+			}
+			else if(api_name == "medusa_token")
+			{
+				medusa_token = variable.get("value");
+			}
+		}
+		// Function to generate a random password
+		password = '';
+		characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+		// Reset the password and flags
+		password = "";
+		hasLowerCase = false;
+		hasUpperCase = false;
+		hasDigit = false;
+		for each  occurrence in {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50}
+		{
+			password = "";
+			hasLowerCase = false;
+			hasUpperCase = false;
+			hasDigit = false;
+			for each  i in {1,2,3,4,5,6,7,8,9,10,11,12}
+			{
+				index = randomnumber(0,characters.length() - 1).toLong();
+				// Changed to randomNumber
+				character = characters.substring(index,index + 1);
+				// Changed to substring
+				password = password + character;
+				// Check character type
+				if(character.matches("[a-z]"))
+				{
+					hasLowerCase = true;
+				}
+				if(character.matches("[A-Z]"))
+				{
+					hasUpperCase = true;
+				}
+				if(character.matches("[0-9]"))
+				{
+					hasDigit = true;
+				}
+			}
+			// Check if all conditions are met
+			if(hasLowerCase && hasUpperCase && hasDigit)
+			{
+				info password;
+				break;
+			}
+		}
+		data = zoho.crm.getRecordById("Leads",id);
+		dataMap = Map();
+		dataMap.put("first_name",data.get("First_Name"));
+		dataMap.put("last_name",data.get("Last_Name"));
+		dataMap.put("email",data.get("Email"));
+		dataMap.put("phone",data.get("Phone"));
+		dataMap.put("password",password);
+		// 	dataMap.put("zoho_contact_id",id);
+		//dataMap.put("country_code","91");
+		if(data.get("Company") != null)
+		{
+			dataMap.put("company_name",data.get("Company"));
+		}
+		else
+		{
+			return "Please select Company";
+		}
+		info dataMap;
+		headerMap = Map();
+		headerMap.put("Content-Type","application/json");
+		headerMap.put("Authorization",medusa_token);
+		sendData = invokeurl
+		[
+			url :medusa_api_url + "/public/customer-insert?type=leads"
+			type :POST
+			parameters:dataMap.toString()
+			headers:headerMap
+		];
+		info "Data from Website - " + sendData;
+		if(sendData.containKey("customer"))
+		{
+			mp = Map();
+			mp.put("user_id",sendData.get("customer").get("id"));
+			update_lead = zoho.crm.updateRecord("Leads",id,mp);
+			info update_lead;
+			return "Customer Onboarded Successfully";
+		}
+		else if(sendData.containKey("message"))
+		{
+			if(sendData.get("customer_id") != "")
+			{
+				mp = Map();
+				mp.put("user_id",sendData.get("customer_id"));
+				update_lead = zoho.crm.updateRecord("Leads",id,mp);
+			}
+			return sendData.get("message") + " - " + sendData.get("customer_id");
+		}
+		return sendData;
+	}
+	else
+	{
+		Email = lead_details.get("Email");
+		user_id = lead_details.get("user_id");
+		if(user_id == null)
+		{
+			return "User ID not found";
+		}
+		resp = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v5/settings/variables"
+			type :get
+			connection:"zohocrm"
+		];
+		variables = resp.get("variables");
+		for each  variable in variables
+		{
+			api_name = variable.get("api_name");
+			if(api_name == "kafka_token")
+			{
+				kafka_token = variable.get("value");
+			}
+			else if(api_name == "kafka_url")
+			{
+				kafka_url = variable.get("value");
+			}
+			else if(api_name == "medusa_api_url")
+			{
+				medusa_api_url = variable.get("value");
+			}
+			else if(api_name == "medusa_token")
+			{
+				medusa_token = variable.get("value");
+			}
+		}
+		password = '';
+		characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+		password = "";
+		hasLowerCase = false;
+		hasUpperCase = false;
+		hasDigit = false;
+		for each  occurrence in {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50}
+		{
+			password = "";
+			hasLowerCase = false;
+			hasUpperCase = false;
+			hasDigit = false;
+			for each  i in {1,2,3,4,5,6,7,8,9,10,11,12}
+			{
+				index = randomnumber(0,characters.length() - 1).toLong();
+				character = characters.substring(index,index + 1);
+				password = password + character;
+				if(character.matches("[a-z]"))
+				{
+					hasLowerCase = true;
+				}
+				if(character.matches("[A-Z]"))
+				{
+					hasUpperCase = true;
+				}
+				if(character.matches("[0-9]"))
+				{
+					hasDigit = true;
+				}
+			}
+			if(hasLowerCase && hasUpperCase && hasDigit)
+			{
+				info password;
+				break;
+			}
+		}
+		dataMap = Map();
+		dataMap.put("customer_id",user_id);
+		dataMap.put("new_password",password);
+		info dataMap;
+		headerMap = Map();
+		headerMap.put("Content-Type","application/json");
+		headerMap.put("Authorization",'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJQcm9kdWN0SW5zZXJ0IiwiZGV2IjoiUmFodWwgSmFpbiJ9.atnS3g3RNOBK5CBBCnXvPEVyAcLuZX3pJAErIhTdZk4');
+		sendData = invokeurl
+		[
+			url :medusa_api_url + "/utility/change-customer-password"
+			type :POST
+			parameters:dataMap.toString()
+			headers:headerMap
+		];
+		info sendData;
+		if(!sendData.containKey("type"))
+		{
+			update = zoho.crm.updateRecord("Leads",id,{"Password":password},{"trigger":{"workflow"}});
+			/*
+// 	sendfrom = Map();
+// 	sendfrom.put("email","crm.support@kgkmail.com");
+// 	sendto = Map();
+// 	sendto.put("email",Email);
+// 	//nitesh.parihar@kgkmail.com
+// 	tolist = List();
+// 	tolist.add(sendto);
+// 	tempmp = Map();
+// 	tempmp.put("id",5870915000070905254);
+// 	Send_Email_mp = Map();
+// 	Send_Email_mp.put("from",sendfrom);
+// 	Send_Email_mp.put("to",tolist);
+// 	Send_Email_mp.put("template",tempmp);
+// 	Send_Email_mp.put("org_email",true);
+// 	Send_Email_dlist = List();
+// 	Send_Email_dlist.add(Send_Email_mp);
+// 	Send_Email_data = Map();
+// 	Send_Email_data.put("data",Send_Email_dlist);
+// 	// info "Send_Email_data - " + Send_Email_data;
+// 	Send_Email = invokeurl
+// 	[
+// 		url :"https://www.zohoapis.com/crm/v2.1/Contacts/" + con_id + "/actions/send_mail"
+// 		type :POST
+// 		parameters:Send_Email_data + ""
+// 		connection:"zohocrm"
+// 	];
+// 	info "Send_Email - " + Send_Email;
+*/
+			return "Password Generated Successfully - " + password;
+		}
+	}
+	// ruturn sendData;
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Customer Onboarding button failed." + newline + " Leads - https://crm.zoho.com/crm/org821143611/tab/Leads/" + id + newline + "" + e,"cliq");
+	info resp;
+	return e;
+}
+return "";
+}

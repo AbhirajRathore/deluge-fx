@@ -1,0 +1,93 @@
+string button.update_lead_source_on_deals(String id)
+{
+idList = id.toList("|||");
+for each  deal_id in idList
+{
+	update_list = list();
+	deal_resp = zoho.crm.getRecordById("Deals",deal_id);
+	Stage = deal_resp.get("Stage");
+	Owner = deal_resp.get("Owner").get("id");
+	Lead_Source = deal_resp.get("Lead_Source");
+	platform_of_deal = ifNull(deal_resp.get("platform_of_deal"),"");
+	iterations = "".leftpad(60 - 1).toList("");
+	pageCounter = 1;
+	numRecords = 0;
+	if(Stage == "Closed Lost")
+	{
+		for each  iteration in iterations
+		{
+			page = pageCounter;
+			perPage = 200;
+			RecordsListBatch = zoho.crm.getRelatedRecords("Inventory3","Deals",deal_id,page,perPage);
+			if(RecordsListBatch.isEmpty())
+			{
+				break;
+			}
+			else
+			{
+				for each  stone in RecordsListBatch
+				{
+					Stone_id = stone.get("Stones").get("id");
+					bid_discount = ifNull(stone.get("bid_discount"),0.0);
+					record_map = {"id":Stone_id,"Bid":"","Lead_Source":"","Platform":"","Deal_by":""};
+					update_list.add(record_map);
+				}
+				pageCounter = pageCounter + 1;
+				numRecords = numRecords + RecordsListBatch.size();
+			}
+		}
+	}
+	else
+	{
+		for each  iteration in iterations
+		{
+			page = pageCounter;
+			perPage = 200;
+			RecordsListBatch = zoho.crm.getRelatedRecords("Inventory3","Deals",deal_id,page,perPage);
+			if(RecordsListBatch.isEmpty())
+			{
+				break;
+			}
+			else
+			{
+				for each  stone in RecordsListBatch
+				{
+					Stone_id = stone.get("Stones").get("id");
+					bid_discount = ifNull(stone.get("bid_discount"),0.0);
+					record_map = {"id":Stone_id,"Bid":bid_discount,"Lead_Source":Lead_Source,"Platform":platform_of_deal,"Deal_by":Owner};
+					update_list.add(record_map);
+				}
+				pageCounter = pageCounter + 1;
+				numRecords = numRecords + RecordsListBatch.size();
+			}
+		}
+	}
+	info update_list;
+	if(update_list.size() > 0)
+	{
+		iterations = "".leftpad(60 - 1).toList("");
+		for each  iteration in iterations
+		{
+			if(update_list.size() == 0)
+			{
+				break;
+			}
+			// 		for less than 100 records ...................
+			else if(update_list.size() <= 100 && update_list.size() > 0)
+			{
+				bulk_update = zoho.crm.bulkUpdate("Products",update_list);
+				info bulk_update.size();
+				break;
+			}
+			else if(update_list.size() > 100)
+			{
+				newListVar = update_list.subList(0,100);
+				bulk_update = zoho.crm.bulkUpdate("Products",newListVar);
+				info bulk_update.size();
+				update_list.removeAll(newListVar);
+			}
+		}
+	}
+}
+return "Lead Source Updated";
+}

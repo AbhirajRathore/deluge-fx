@@ -1,0 +1,348 @@
+string standalone.Create_record_from_Deal_subform(String crmAPIRequest)
+{
+try 
+{
+	crm_env_url = standalone.get_variable_value("config_api","crm_env","url");
+	transaction_consignment_sale_layout_id = standalone.get_variable_value("config_general","transaction_consignment_sale_layout_id","");
+	transaction_local_sale_layout_id = standalone.get_variable_value("config_general","transaction_local_sale_layout_id","");
+	dispatch_consignment_layout_id = standalone.get_variable_value("config_general","dispatch_consignment_layout_id","");
+	dispatch_memo_layout_id = standalone.get_variable_value("config_general","dispatch_memo_layout_id","");
+	// info "crmAPIRequest - " + crmAPIRequest;
+	arguments = crmAPIRequest.getJSON("params").get("arguments");
+	// info "Data from Subform - " + arguments;
+	// info arguments.get("stone_deal_x_invetory_ids").size();
+	deal_id = arguments.get("record_id");
+	info "Deal ID - " + deal_id;
+	action = arguments.get("action");
+	info "Action - " + action;
+	resp = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v7/Deals/" + deal_id
+		type :get
+		connection:"crm"
+	];
+	deal_data = resp.get("data");
+	for each  deal in deal_data
+	{
+		Pipeline = deal.getJson("Pipeline");
+		Contact_Name = deal.getJSON("Contact_Name");
+		Broker_Name = deal.getJSON("Broker_Name");
+		isBillToShipTo = arguments.get("isBillToShipTo");
+		if(action == "consignmentReturn" && isBillToShipTo == "true")
+		{
+			Account_Name_id = deal.getJSON("Bill_to_Party");
+			if(Account_Name_id != null)
+			{
+				Account_Name_id = deal.getJSON("Bill_to_Party").get("id");
+			}
+			else
+			{
+				Account_Name_id = deal.getJSON("Account_Name").get("id");
+			}
+		}
+		else
+		{
+			Account_Name_id = deal.getJSON("Account_Name").get("id");
+		}
+		Owner_id = deal.getJSON("Owner").getJSON("id");
+		Location = ifnull(deal.getJson("Location"),"");
+		Lead_Source = ifnull(deal.getJson("Lead_Source"),"");
+		Description = ifnull(deal.getJson("Description"),"");
+		export_invoice_type = ifnull(arguments.get("export_invoice_type"),"");
+		currency_type = ifnull(arguments.get("currency_type"),"");
+		payment_mode = ifnull(arguments.get("payment_mode"),"");
+		brokerage_percentage = ifnull(arguments.get("brokerage_percentage"),"");
+		invoice_type = ifnull(arguments.get("invoice_type"),"");
+		ref_invoice_no = arguments.get("ref_invoice_no");
+		if(ref_invoice_no != null && ref_invoice_no.contains("/"))
+		{
+			ref_invoice_no = ref_invoice_no.getSuffix("/").getPrefix("/");
+		}
+	}
+	// info currency_type;
+	deal_update_mp = Map();
+	main_map = Map();
+	Memo_Category = "";
+	if(Pipeline == "Local Sales Pipeline" && action == "localSale")
+	{
+		main_map.put("Layout",transaction_local_sale_layout_id);
+		Module_API = "International_Transaction";
+		Inventory_module = "Transaction_X_Inventory";
+		Inventory_module_field = "Transaction";
+		is_volume_discount = arguments.get("is_volume_discount");
+		if(is_volume_discount == "Y")
+		{
+			is_volume_discount = true;
+		}
+		else
+		{
+			is_volume_discount = false;
+		}
+		// 	deal_update_mp.put("Stage","Closed Won");
+	}
+	else if(Pipeline == "Local Sales Pipeline" && action == "memoOut" || action == "memoOutReturn")
+	{
+		main_map.put("Layout",dispatch_memo_layout_id);
+		Module_API = "International_Disptaches";
+		Inventory_module = "Dispatch_X_Inventory";
+		Inventory_module_field = "Dispatch";
+		main_map.put("Memo_Type","Single");
+		if(action == "memoOut")
+		{
+			main_map.put("Memo_Category","Memo out");
+			main_map.put("shipped_by",ifNull(arguments.get("shipped_by"),""));
+			Memo_Category = "Memo out";
+			deal_update_mp.put("Stage","Memo Generation");
+		}
+		else
+		{
+			main_map.put("Memo_Category","Memo out return");
+			Memo_Category = "Memo out return";
+		}
+	}
+	else if(Pipeline == "International Sales Pipeline" && action == "export" || action == "consignmentSale")
+	{
+		main_map.put("Layout",transaction_consignment_sale_layout_id);
+		Module_API = "International_Transaction";
+		Inventory_module = "Transaction_X_Inventory";
+		Inventory_module_field = "Transaction";
+		is_volume_discount = arguments.get("is_volume_discount");
+		if(is_volume_discount == "Y")
+		{
+			is_volume_discount = true;
+		}
+		else
+		{
+			is_volume_discount = false;
+		}
+		if(action == "export")
+		{
+			main_map.put("Transaction_Category","Export Sale");
+		}
+		else
+		{
+			main_map.put("Transaction_Category","Consignment Sale");
+		}
+		// 	deal_update_mp.put("Stage","Closed Won");
+		main_map.put("Consignment_Type","Single");
+		main_map.put("Invoice_Type",export_invoice_type);
+		main_map.put("Currency_Type",currency_type);
+		main_map.put("Payment_Mode",payment_mode);
+		main_map.put("Client","CL");
+		main_map.put("Inv_Type",invoice_type);
+	}
+	else if(Pipeline == "International Sales Pipeline" && action == "consignment" || action == "consignmentReturn")
+	{
+		main_map.put("Layout",dispatch_consignment_layout_id);
+		Module_API = "International_Disptaches";
+		Inventory_module = "Dispatch_X_Inventory";
+		Inventory_module_field = "Dispatch";
+		if(action == "consignmentReturn")
+		{
+			main_map.put("Consignment_Category","Consignment Return");
+			Memo_Category = "Consignment Return";
+		}
+		else
+		{
+			main_map.put("Consignment_Category","Consignment");
+			Memo_Category = "Consignment";
+			deal_update_mp.put("Stage","Consignment Creation");
+		}
+		main_map.put("Consignment_Type","Single");
+		main_map.put("Invoice_Type",export_invoice_type);
+		main_map.put("Currency_Type",currency_type);
+		main_map.put("Payment_Mode",payment_mode);
+		main_map.put("Client","CL");
+		main_map.put("Inv_Type",invoice_type);
+	}
+	else
+	{
+		info "Action or Pipeline does not match";
+		return "";
+	}
+	info "Module Name - " + Module_API;
+	// Add data to recorc map
+	// ===========================================================
+	if(Broker_Name != null)
+	{
+		main_map.put("Broker_Name",Broker_Name.get("id"));
+		main_map.put("Broker_Involved",true);
+	}
+	if(Contact_Name != null)
+	{
+		Contact_Name_id = ifNull(deal.getJSON("Contact_Name").getJson("id"),"");
+		main_map.put("Contact_Name",Contact_Name_id);
+	}
+	main_map.put("Account_Name",Account_Name_id);
+	main_map.put("Owner",Owner_id);
+	main_map.put("Location",Location);
+	main_map.put("Deal_Name",deal_id);
+	main_map.put("Lead_Source",Lead_Source);
+	main_map.put("Terms",arguments.get("terms"));
+	main_map.put("Description",Description);
+	main_map.put("Bank_Rate",arguments.get("exchange_bank_rate"));
+	main_map.put("Ref_No",ref_invoice_no);
+	main_map.put("Ref_Date",arguments.get("ref_date"));
+	if(Module_API == "International_Transaction")
+	{
+		main_map.put("Sale_Date",arguments.get("ref_date").toDate("dd/MMM/yy"));
+	}
+	main_map.put("Currency_Type",currency_type);
+	main_map.put("Payment_Mode",payment_mode);
+	main_map.put("Brokerage",brokerage_percentage);
+	acc_id = zoho.crm.getRecordById("Accounts",Account_Name_id);
+	Address_Section = acc_id.getJson("Address_Section");
+	Address = "";
+	State = "";
+	Country = "";
+	City = "";
+	Pincode = "";
+	if(Address_Section.size() > 0)
+	{
+		for each  rec in Address_Section
+		{
+			Main_Address = rec.getJson("Main_Address");
+			if(Main_Address == true)
+			{
+				Address = rec.getJson("Address");
+				State = rec.getJson("State");
+				Country = rec.getJson("Country");
+				City = rec.getJson("City");
+				Pincode = rec.getJson("Pincode");
+			}
+		}
+	}
+	else
+	{
+		Address = acc_id.get("factory_address");
+	}
+	main_map.put("Billing_City",City);
+	main_map.put("Billing_Code",Pincode);
+	main_map.put("Billing_Country",Country);
+	main_map.put("Billing_State",State);
+	main_map.put("Billing_Street",Address);
+	main_map.put("Shipping_City",City);
+	main_map.put("Shipping_Code",Pincode);
+	main_map.put("Shipping_Country",Country);
+	main_map.put("Shipping_State",State);
+	main_map.put("Shipping_Street",Address);
+	info main_map;
+	create_rec = zoho.crm.createRecord(Module_API,main_map,{"trigger":{"workflow"}});
+	info create_rec;
+	New_record_id = create_rec.get("id");
+	if(deal_update_mp.size() > 0)
+	{
+		update_deal = zoho.crm.updateRecord("Deals",deal_id,deal_update_mp,{"trigger":{"workflow"}});
+		info "Update Deal Map - " + deal_update_mp;
+		info "Update Deal - " + update_deal;
+	}
+	if(New_record_id != null)
+	{
+		info "Created record ID - " + create_rec.get("id");
+		// =================================================================
+		createlist = List();
+		update_stone_list = list();
+		Amount = 0.0;
+		selected_stones = arguments.get("stone_deal_x_invetory_ids");
+		for each  X_id in selected_stones
+		{
+			// 		info X_id;
+			// Get Deal X Inventory record 
+			d_X_I = zoho.crm.getRecordById("Deals_X_Inventory",X_id);
+			// 		info d_X_I;
+			Stones_id = d_X_I.get("Stones").get("id");
+			d_x_l_Location = d_X_I.get("Location");
+			disc_percent = ifNull(d_X_I.get("disc_percent"),"");
+			total_amount = ifNull(d_X_I.get("Net_Amount"),0.0).toDecimal().round(2);
+			Amount = total_amount + Amount;
+			Rate = ifNull(d_X_I.get("Rate"),0.0).toString();
+			Bid_Discount = ifNull(d_X_I.get("bid_discount"),0.0).toDecimal();
+			Markup = ifNull(d_X_I.get("Markup"),0.0);
+			llist = ifNull(d_X_I.get("list"),0.0);
+			List_Total = ifNull(d_X_I.get("List_Total"),0.0).toDecimal();
+			LSP = ifNull(d_X_I.get("LSP"),0.0).toDecimal();
+			MSP = ifNull(d_X_I.get("MSP"),0.0);
+			MSP_Total = ifNull(d_X_I.get("MSP_Total"),0.0).toDecimal().round(2);
+			// Get Stone record
+			rec = zoho.crm.getRecordById("Products",Stones_id);
+			Original_MSP = ifNull(rec.get("msp_per"),0.0);
+			Carat = ifNull(rec.get("carat"),0.0);
+			Clarity = ifNull(rec.get("clarity"),"");
+			Color = ifNull(rec.get("color"),"");
+			CUT = ifNull(rec.get("cut"),"");
+			DEPT = ifNull(rec.get("department_name"),"");
+			Flow = ifNull(rec.get("fluorescence"),"");
+			LAB = ifNull(rec.get("lab"),"");
+			Polish = ifNull(rec.get("polish"),"");
+			Shape = ifNull(rec.get("shape"),"");
+			// 			update_stone_map = {"id":Stones_id,"deal_id":deal_id,"Lead_Source":Lead_Source,"Deal_by":Owner_id,"Bid":Bid_Discount,"is_volume_discount":is_volume_discount};
+			// 			update_stone_list.add(update_stone_map);
+			recordMap1 = {"Stone":Stones_id,Inventory_module_field:New_record_id,"Location":d_x_l_Location,"Owner":Owner_id,"bid_discount":Bid_Discount,"Carat":Carat,"Clarity":Clarity,"Color":Color,"CUT":CUT,"DEPT":DEPT,"Flow":Flow,"LAB":LAB,"list":llist,"List_Total":List_Total,"LSP":LSP,"Markup":Markup,"MSP":MSP,"MSP_Total":total_amount,"Polish":Polish,"Shape":Shape,"disc_percent":disc_percent,"Original_MSP":Original_MSP,"Barcode":d_X_I.get("Stones").get("name"),"Certificate_No":rec.get("certificate_no"),"Memo_Category":Memo_Category,"Rate":Rate,"deal_id":deal_id};
+			createlist.add(recordMap1);
+			// 		info recordMap1;
+		}
+		new_rec_map = Map();
+		new_rec_map.put("Amount",Amount);
+		new_rec_map.put("quantity",selected_stones.size());
+		update_rec = zoho.crm.updateRecord(Module_API,New_record_id,new_rec_map);
+		info "Update Account in New record - " + update_rec;
+		// 	Create X_inventory records for New Record =========================
+		info "Stone Size - " + createlist.size();
+		iterations = "".leftpad(60 - 1).toList("");
+		for each  iteration in iterations
+		{
+			if(createlist.size() == 0)
+			{
+				break;
+			}
+			// 		for less than 100 records ...................
+			else if(createlist.size() <= 100 && createlist.size() > 0)
+			{
+				bulk_create = zoho.crm.bulkCreate(Inventory_module,createlist,{"trigger":{"workflow"}});
+				// 				if(Module_API == "International_Transaction")
+				// 				{
+				// 					bulk_update = zoho.crm.bulkUpdate("Products",update_stone_list);
+				// 				}
+				// 			info bulk_create;
+				break;
+			}
+			else if(createlist.size() > 100)
+			{
+				newListVar = createlist.subList(0,100);
+				bulk_create = zoho.crm.bulkCreate(Inventory_module,newListVar,{"trigger":{"workflow"}});
+				createlist.removeAll(newListVar);
+				// 				if(Module_API == "International_Transaction")
+				// 				{
+				// 					newListVar_stone = update_stone_list.subList(0,100);
+				// 					bulk_update = zoho.crm.bulkUpdate("Products",newListVar_stone);
+				// 					update_stone_list.removeAll(newListVar_stone);
+				// 					bulk_update = zoho.crm.bulkUpdate("Products",update_stone_list);
+				// 				}
+			}
+		}
+		// 	End Create X_inventory records for New Record =========================
+		// 		email_sheet = Map();
+		// 		email_sheet.put("New_record_id",New_record_id);
+		// 		email_sheet.put("Pipeline",Pipeline);
+		// 		email_sheet.put("Module_API",Module_API);
+		// 		email_sheet.put("action",action);
+		// 		Send_sheet = invokeurl
+		// 		[
+		// 			url :"https://www.zohoapis.com/crm/v7/functions/send_email_to_accounting_team/actions/execute?auth_type=apikey&zapikey=1003.0be59d77b844f99c360e7029a1f12ec1.a0373baf7027cb5491206d845574530b"
+		// 			type :Post
+		// 			parameters:email_sheet.toString()
+		// 			connection:"zohocrm"
+		// 		];
+		// 		info "Send_sheet - " + Send_sheet;
+	}
+	return "";
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Create record from subform function failed." + newline + " Deal - " + crm_env_url + "/tab/Potentials/" + deal_id + " " + newline + "Action - " + action + " " + newline + "" + e,"cliq");
+	info resp;
+	return "";
+}
+return "";
+}

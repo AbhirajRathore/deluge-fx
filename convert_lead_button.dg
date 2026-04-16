@@ -1,0 +1,115 @@
+string button.convert_lead_button(String lead_id)
+{
+crm_env_url = standalone.get_variable_value("config_api","crm_env","url");
+newLine = hexToText("0A");
+options = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v7/Leads/" + lead_id + "/__conversion_options"
+	type :GET
+	connection:"crm"
+];
+info options;
+lead_details = zoho.crm.getRecordById("Leads",lead_id);
+First_Name = ifNull(lead_details.get("First_Name"),"");
+Last_Name = ifNull(lead_details.get("Last_Name"),"");
+Phone = lead_details.get("Phone");
+Mobile = lead_details.get("Mobile");
+lead_Owner = lead_details.get("Owner").get("id");
+user_id = lead_details.get("user_id");
+if(options != "")
+{
+	conversion_options = options.get("__conversion_options");
+	info conversion_options;
+	Contacts = conversion_options.get("Contacts");
+	Accounts = conversion_options.get("Accounts");
+	if(Contacts.size() > 0)
+	{
+		values_map = Map();
+		// 		values_map.put("overwrite",true);
+		for each  con in Contacts
+		{
+			con_id = con.get("id");
+			con_details = zoho.crm.getRecordById("Contacts",con_id);
+			con_owner = con_details.get("Owner").get("id");
+			if(con_owner != lead_Owner)
+			{
+				return "An existing contact is already assigned to " + con_details.get("Owner").get("name") + newLine + ". Please reach out to Contact Owner or Try a different email.";
+			}
+			Account_Name = con.get("Account_Name");
+			if(Account_Name != null)
+			{
+				acc_id = Account_Name.get("id");
+				values_map.put("Accounts",acc_id);
+			}
+			break;
+		}
+		values_map.put("Contacts",con_id);
+		info values_map;
+		con_response = zoho.crm.convertLead(lead_id,values_map);
+		info con_response;
+		if(con_response.containKey("code"))
+		{
+			if(con_response.get("code") == "DUPLICATE_DATA")
+			{
+				values_map.put("First_Name",First_Name);
+				values_map.put("Last_Name",Last_Name);
+				response = zoho.crm.upsert("Contacts",values_map,{"trigger":{"workflow"}});
+				info response;
+				if(response.containKey("code"))
+				{
+					return response.get("code");
+				}
+				return con_response.get("message");
+			}
+			return response.get("message");
+		}
+		mp = Map();
+		if(Phone != "")
+		{
+			mp.put("Phone",Phone);
+		}
+		if(Mobile != "")
+		{
+			mp.put("Mobile",Mobile);
+		}
+		if(user_id != "")
+		{
+			mp.put("user_id",user_id);
+		}
+		update = zoho.crm.updateRecord("Contacts",con_id,mp,{"trigger":{"workflow"}});
+		openUrl(crm_env_url + "/tab/Contacts/" + con_id,"new window");
+		return "Lead is converted to Existing Contact";
+	}
+	else if(Accounts.size() > 0)
+	{
+		for each  acc in Accounts
+		{
+			acc_id = acc.get("id");
+			break;
+		}
+		values_map = Map();
+		values_map.put("Accounts",acc_id);
+		response = zoho.crm.convertLead(lead_id,values_map);
+		info response;
+		if(response.containKey("code"))
+		{
+			if(response.get("code") == "DUPLICATE_DATA")
+			{
+				return response.get("message") + " - " + response.get("details").get("api_name");
+			}
+		}
+		Contacts = response.get("Contacts");
+		openUrl(crm_env_url + "/tab/Contacts/" + Contacts,"new window");
+		if(user_id != null)
+		{
+			update = zoho.crm.updateRecord("Contacts",Contacts,{"From_KGK_Online":true},{"trigger":{"workflow"}});
+		}
+		return "LEAD CONVERTED";
+	}
+	else
+	{
+		return "Valid Company Not Found, Please select the Company again!";
+	}
+}
+return "Valid Company Not Found, Please select the Company again!";
+}

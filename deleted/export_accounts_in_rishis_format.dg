@@ -1,0 +1,109 @@
+string button.export_accounts_in_rishis_format(String id)
+{
+dataList = List();
+idList = id.toList("|||");
+for each  id in idList
+{
+	acc_details = zoho.crm.getRecordById("Accounts",id);
+	Account_Name = acc_details.get("Account_Name");
+	Location = acc_details.get("Location");
+	contacts = zoho.crm.getRelatedRecords("Contacts","Accounts",id);
+	if(contacts.size() > 0)
+	{
+		for each  con in contacts
+		{
+			con_id = con.get("id");
+			con_details = zoho.crm.getRecordById("Contacts",con_id);
+			First_Name = ifNull(con_details.get("First_Name"),"");
+			Last_Name = ifNull(con_details.get("Last_Name"),"");
+			Contact_Name = First_Name + " " + Last_Name;
+			Email = con_details.get("Email");
+			Phone = con_details.get("Phone");
+			Owner = con_details.get("Owner").get("name");
+			Lead_Source = con_details.get("Lead_Source");
+			dataMap1 = Map();
+			dataMap1.put("Account Name",Account_Name);
+			dataMap1.put("Contact Name",Contact_Name);
+			dataMap1.put("Country",Location);
+			dataMap1.put("Email",Email);
+			dataMap1.put("Sales Person",Owner);
+			dataMap1.put("Lead Source",Lead_Source);
+			dataMap1.put("Phone Number",Phone);
+			dataList.add(dataMap1);
+		}
+	}
+	Acc_contacts = zoho.crm.getRelatedRecords("Associated_Contacts11","Accounts",id);
+	if(Acc_contacts.size() > 0)
+	{
+		for each  acc_con in Acc_contacts
+		{
+			acc_con_id = acc_con.get("id");
+			acc_details = zoho.crm.getRecordById("Member_Accounts_x_Contact",acc_con_id);
+			con_id = acc_details.get("Contacts").get("id");
+			con_details = zoho.crm.getRecordById("Contacts",con_id);
+			First_Name = ifNull(con_details.get("First_Name"),"");
+			Last_Name = ifNull(con_details.get("Last_Name"),"");
+			Contact_Name = First_Name + " " + Last_Name;
+			Email = con_details.get("Email");
+			Phone = con_details.get("Phone");
+			Owner = con_details.get("Owner").get("name");
+			Lead_Source = con_details.get("Lead_Source");
+			dataMap1 = Map();
+			dataMap1.put("Account Name",Account_Name);
+			dataMap1.put("Contact Name",Contact_Name);
+			dataMap1.put("Country",Location);
+			dataMap1.put("Email",Email);
+			dataMap1.put("Sales Person",Owner);
+			dataMap1.put("Lead Source",Lead_Source);
+			dataMap1.put("Phone Number",Phone);
+			dataList.add(dataMap1);
+		}
+	}
+	if(Acc_contacts.size() == 0 && contacts.size() == 0)
+	{
+		dataMap1 = Map();
+		dataMap1.put("Account Name",Account_Name);
+		dataMap1.put("Country",Location);
+		dataMap1.put("Email",ifNull(acc_details.get("Email"),""));
+		dataMap1.put("Phone Number",ifNull(acc_details.get("Phone"),""));
+		dataList.add(dataMap1);
+	}
+}
+info dataList;
+// create_workbook ============================================================
+paramMap = Map();
+paramMap.put('method','workbook.createfromtemplate');
+paramMap.put('resource_id','nslorac83e48f3066415ea51ffe2befee605e');
+paramMap.put('workbook_name',"Accounts_" + today.tostring("MM-dd-yyyy"));
+paramMap.put('parent_id','h1ru0197fabc9ddc3454e862386f01bd5730e');
+create_workbook = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/createfromtemplate"
+	type :POST
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+workbook_name = create_workbook.get("workbook_name");
+resource_id = create_workbook.get("resource_id");
+workbook_url = create_workbook.get("workbook_url");
+info "Email Attachment url - " + workbook_url;
+// 	info "Recourse ID - " + resource_id;
+// 	create_workbook END ========================================================================
+// Add Rows to Sheet =============================================================================
+paramMap = Map();
+paramMap.put('method','worksheet.jsondata.append');
+paramMap.put('worksheet_name','Sheet1');
+paramMap.put('header_row',1);
+paramMap.put('json_data',dataList);
+add_rows = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/" + resource_id
+	type :POST
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+info "Workbook Status - " + add_rows;
+// Add Rows to Sheet =============================================================================
+openUrl(workbook_url,"new window");
+return idList.size() + " Accounts has been Exported";
+}

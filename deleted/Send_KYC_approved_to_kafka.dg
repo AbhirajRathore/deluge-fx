@@ -1,0 +1,32 @@
+void automation.Send_KYC_approved_to_kafka(Int con_id)
+{
+data = zoho.crm.getRecordById("Contacts",con_id);
+user_id = data.get("user_id");
+if(user_id == null)
+{
+	info "user_id not found";
+	return;
+}
+kafka_token = standalone.get_variable_value("config_api","kafka","token");
+kafka_url = standalone.get_variable_value("config_api","kafka","url");
+// KYC APPROVED STATUS
+// ============================================
+info "User ID - " + user_id;
+kyc_status = "Approved";
+mp = Map();
+mp.put("customer_id",user_id);
+mp.put("kyc_status",kyc_status);
+mp.put("reason_for_declined",null);
+info mp;
+header = Map();
+header.put("Authorization","Bearer " + kafka_token);
+header.put("Content-Type","application/json");
+response = invokeurl
+[
+	url :kafka_url + "/api/crm/kyc_status"
+	type :POST
+	parameters:mp.toString()
+	headers:header
+];
+info "KYC STATUS - " + response;
+}

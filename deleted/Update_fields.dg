@@ -1,0 +1,53 @@
+void automation.Update_fields(Int c_id)
+{
+try 
+{
+	crm_env_url = standalone.get_variable_value("config_api","crm_env","url");
+	resp = zoho.crm.getRecordById("Calls",c_id);
+	// 	info resp;
+	Subject = resp.get("Subject");
+	if(Subject.startsWith("Outgoing Call To"))
+	{
+		Call_by = Subject.getPrefix(")").getSuffix("(");
+		info Call_by;
+		if(Call_by == "Eshan Suryawanshi")
+		{
+			owner_id = 5870915000088670001;
+		}
+		else if(Call_by == "Supriya Singh")
+		{
+			owner_id = 5870915000150334001;
+		}
+		Description = resp.get("Description");
+		info Description;
+		Call_Purpose = Description.getSuffix(" Tags: ").getPrefix("Call Disposition:");
+		Call_Purpose = Call_Purpose.trim();
+		info Call_Purpose;
+		Call_Result = Description.getPrefix("Call Recording:").getSuffix("Call Disposition:");
+		Call_Result = Call_Result.trim();
+		info Call_Result;
+		Call_Notes = Description.getPrefix("Call Tags:").getSuffix("Call Notes: ");
+		Call_Notes = Call_Notes.trim();
+		info Call_Notes;
+		if(Call_Notes == "")
+		{
+			Call_Notes = resp.get("Subject");
+		}
+		mp = Map();
+		mp.put("Owner",owner_id);
+		mp.put("Call_Purpose",Call_Purpose);
+		mp.put("Call_Result",Call_Result);
+		mp.put("Subject",Call_Notes);
+		info mp;
+		update = zoho.crm.updateRecord("Calls",c_id,mp);
+		info update;
+	}
+}
+catch (e)
+{
+	newLine = hexToText("0A");
+	errorMsg = "Call Update Failed " + newLine + "Error: " + e.toString() + newLine + "https://crm.zoho.com/crm/org821143611/tab/Calls/" + c_id;
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983",errorMsg,"cliq");
+	info resp;
+}
+}

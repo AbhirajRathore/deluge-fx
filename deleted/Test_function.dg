@@ -1,0 +1,363 @@
+void automation.Test_function()
+{
+info "---- Contact Validation Script Started ----";
+// Step 1: Fetch Deals within date range and unchecked Contact_No_Match
+queryMap = Map();
+queryMap.put("select_query","SELECT id, Account_Name.id, Account_Name.Parent_Account.id, Contact_Name.id, Contact_No_Match, Contact_Name.Account_Name.id " + "FROM Deals WHERE Created_Time between '2025-07-01T00:00:00+05:30' and '2025-09-30T23:59:59+05:30' and Contact_No_Match = false LIMIT 500 OFFSET 500");
+response = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v4/coql"
+	type :POST
+	body:queryMap.toString()
+	connection:"crm"
+];
+dataList = response.get("data");
+info "Total Deals fetched: " + dataList.size();
+noMatchCount = 0;
+for each  deal in dataList
+{
+	try 
+	{
+		accountId = ifnull(deal.get("Account_Name.id"),null);
+		contactId = ifnull(deal.get("Contact_Name.id"),null);
+		parentAccountId = ifnull(deal.get("Account_Name.Parent_Account.id"),null);
+		contactAccountId = ifnull(deal.get("Contact_Name.Account_Name.id"),null);
+		// --- Step 2: Quick Skip Condition ---
+		if(accountId == contactAccountId)
+		{
+			continue;
+		}
+		isContactValid = false;
+		allAccountsToCheck = List();
+		// --- Step 3: Identify Accounts to check (Parent + Childs) ---
+		if(parentAccountId != null)
+		{
+			// Add parent
+			allAccountsToCheck.add(parentAccountId);
+			// Fetch all Child Accounts of Parent using COQL
+			childQuery = Map();
+			childQuery.put("select_query","SELECT id FROM Accounts WHERE Parent_Account.id = '" + parentAccountId + "'");
+			childResp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v4/coql"
+				type :POST
+				body:childQuery.toString()
+				connection:"crm"
+			];
+			childAccounts = ifnull(childResp.get("data"),list());
+			if(childAccounts.size() > 0)
+			{
+				for each  child in childAccounts
+				{
+					allAccountsToCheck.add(child.get("id"));
+				}
+			}
+		}
+		else if(accountId != null)
+		{
+			// If no parent, only check same account
+			allAccountsToCheck.add(accountId);
+		}
+		// --- Step 4: Check if the Contact belongs to any of these Accounts ---
+		for each  accId in allAccountsToCheck
+		{
+			// Related list 1: Contacts
+			contactsList = zoho.crm.getRelatedRecords("Contacts","Accounts",accId);
+			for each  con in contactsList
+			{
+				if(con.get("id") == contactId)
+				{
+					isContactValid = true;
+					break;
+				}
+			}
+			if(isContactValid)
+			{
+				break;
+			}
+			// Related list 2: Associated Contacts
+			assocList = zoho.crm.getRelatedRecords("Associated_Contacts11","Accounts",accId);
+			for each  con in assocList
+			{
+				if(con.get("id") == contactId)
+				{
+					isContactValid = true;
+					break;
+				}
+			}
+			if(isContactValid)
+			{
+				break;
+			}
+		}
+		// --- Step 5: If invalid, mark Deal as Contact_No_Match = true ---
+		if(isContactValid == false)
+		{
+			updateMap = Map();
+			updateMap.put("Contact_No_Match",true);
+			updateResp = zoho.crm.updateRecord("Deals",deal.get("id"),updateMap);
+			noMatchCount = noMatchCount + 1;
+			// 			info "Marked No Match for Deal ID: " + deal.get("id");
+		}
+	}
+	catch (e)
+	{
+		info "Error in Deal ID: " + deal.get("id") + " | " + e.toString();
+	}
+}
+info "Total Deals marked as No Match: " + noMatchCount;
+info "---- Contact Validation Script Completed ----";
+/*
+createlist = list();
+for each  con in response.get("data")
+{
+	rec_map = {"id":con.get("id"),"Owner_Phone":ifNull(con.get("Owner.phone"),"")};
+	createlist.add(rec_map);
+}
+info createlist.size();
+iterations = "".leftpad(59).toList("");
+for each  i in iterations
+{
+	if(createlist.isEmpty())
+	{
+		break;
+	}
+	if(createlist.size() > 100)
+	{
+		batch = createlist.subList(0,100);
+	}
+	else
+	{
+		batch = createlist;
+	}
+	bulkResp = zoho.crm.bulkUpdate("Leads",batch);
+	// 		info bulkResp;
+	createlist.removeAll(batch);
+}
+
+createlist = list();
+num = 0;
+nextToken = 0;
+// iterations = "".leftpad(50).toList("");
+// for each  i in iterations
+// {
+queryMap = Map();
+queryMap.put("select_query","SELECT id, MSP_Total,Stone.tran_status,List_Total,Markup,Carat,MSP,disc_percent FROM Transaction_X_Inventory WHERE  (Rate is null OR Rate = '0') AND Created_Time between '2025-09-01T00:00:00+05:30' and '2025-09-26T00:00:00+05:30'  limit 2000 offset 0");
+// 	queryMap.put("select_query","SELECT id, Stones.tran_status,List_Total,Markup,Carat,MSP,disc_percent FROM Deals_X_Inventory WHERE  Created_Time between '2025-09-01T00:00:00+05:30' and '2025-09-23T00:00:00+05:30' and Stones.Product_Name = '450451753' limit 20 offset 0");
+response = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v4/coql"
+	type :POST
+	body:queryMap.toString()
+	connection:"crm"
+];
+info response;
+if(response != "")
+{
+	num = num + response.get("data").size();
+	for each  record in response.get("data")
+	{
+		rec_id = record.get("id");
+		Total = ifNull(record.get("List_Total"),0.0);
+		if(Total == 0.0)
+		{
+			Total = ifNull(record.get("MSP_Total"),0.0);
+		}
+		Markup = ifNull(record.get("Markup"),0.0);
+		Carat = ifNull(record.get("Carat"),0.0);
+		MSP = ifNull(record.get("MSP"),0.0);
+		disc_percent = ifNull(record.get("disc_percent"),0.0);
+		Net_Amount = Total.toDecimal() - Total.toDecimal() * Abs(Markup + MSP + disc_percent.toDecimal()) / 100;
+		if(Carat != 0)
+		{
+			Rate = Net_Amount / Carat;
+		}
+		else
+		{
+			Rate = 0;
+		}
+		recordMap = {"id":rec_id,"Net_Amount":Net_Amount.round(2).toString(),"Rate":Rate.round(3).toString()};
+		createlist.add(recordMap);
+	}
+	// 		if(response.containsKey("info") && response.get("info").containsKey("more_records") && response.get("info").get("more_records") == true)
+	// 		{
+	// 			nextToken = 2000;
+	// 		}
+	// 		else
+	// 		{
+	// 			break;
+	// 		}
+	// 	}
+	// 	else
+	// 	{
+	// 		break;
+	// 	}
+}
+info num;
+// info createlist;
+// Bulk insert inventory lines
+iterations = "".leftpad(59).toList("");
+for each  i in iterations
+{
+	if(createlist.isEmpty())
+	{
+		break;
+	}
+	if(createlist.size() > 100)
+	{
+		batch = createlist.subList(0,100);
+	}
+	else
+	{
+		batch = createlist;
+	}
+	bulkResp = zoho.crm.bulkUpdate("Transaction_X_Inventory",batch);
+	// 	info bulkResp;
+	createlist.removeAll(batch);
+}
+
+	device_id_list = list();
+	user_id_list = list();
+	user_id_list.add("cus_01JY8C4JT53SKPMZVF4SQQ4Z9E");
+	
+	param = Map();
+		param.put("customerIds",user_id_list);
+		header = Map();
+		header.put("Content-Type","application/json");
+		header.put("Authorization","Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJQcm9kdWN0SW5zZXJ0IiwiZGV2IjoiUmFodWwgSmFpbiJ9.atnS3g3RNOBK5CBBCnXvPEVyAcLuZX3pJAErIhTdZk4");
+		get_device_id = invokeurl
+		[
+			url :"https://medusa.kgkit.net/public/customers-device-uuid"
+			type :POST
+			parameters:param.toString()
+			headers:header.toMap()
+		];
+		// 	info  get_device_id ;
+		data = get_device_id.get("data");
+		if(data.size() > 0)
+		{
+			for each  cus in data
+			{
+				device_uuid = cus.get("device_uuid");
+				if(device_uuid != "")
+				{
+					device_id_list.add(device_uuid);
+				}
+			}
+		}
+		info device_uuid;
+// 		info "Number of Record Searched - " + numrecords;
+// 		info "User Id size - " + user_id_list.size();
+// 		info "Device ID Size - " + device_id_list.size();
+		// 	<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+		// Send Notification 
+		// 	---------------------------------------------------------
+		headers_mp = Map();
+		headers_mp.put("Authorization","Basic OTE2ZGUzODEtNTBmNi00OTFkLTliMzItMjk3YTQ5ZDYxODQ3");
+		headers_mp.put("accept","application/json");
+		headers_mp.put("Content-type","application/json");
+		param_mp = Map();
+		param_mp.put("app_id","378b2db1-01ba-4f45-b8cf-9500ea88056b");
+		param_mp.put("include_player_ids",device_id_list);
+		param_mp.put("mutable_content",true);
+		param_mp.put("template_id","88de68f9-2718-42c7-8a8a-b7ee5984a076");
+		param_mp.put("data",{"targetPage":"bid-to-buy:activeBid"});
+		response = invokeurl
+		[
+			url :"https://api.onesignal.com/notifications?c=push"
+			type :POST
+			parameters:param_mp.toString()
+			headers:headers_mp
+		];
+		info response;
+//===============================================================
+resource_id = "c86y57929e10bd10f4124a388a8b7a9ab56d2";
+paramMap = Map();
+paramMap.put('method','worksheet.records.fetch');
+paramMap.put('worksheet_name','customer_activity_for_mapping');
+paramMap.put('header_row',1);
+// paramMap.put('records_start_index',700);
+// paramMap.put('count',1);
+response = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/" + resource_id
+	type :Get
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+records = response.get("records");
+datalist = list();
+// 	info records;
+for each  acc in records
+{
+	user_id = acc.get('customer_id');
+	row_index = acc.get('row_index');
+// 	info row_index;
+// 	loc = ifNull(acc.get('Location '),"");
+// 	target = ifNull(acc.get('Target (usd)'),0.0);
+// 	credit = ifNull(acc.get('Credit Limit'),0.0);
+// 	markup = ifNull(acc.get('Markup '),0);
+// 	terms = ifNull(acc.get('Terms'),0);
+	queryMap = Map();
+	queryMap.put("select_query","SELECT id, Email,Phone, Owner  FROM Contacts WHERE  user_id = '" + user_id + "' limit 1 offset 0");
+	response = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v4/coql"
+		type :POST
+		body:queryMap.toString()
+		connection:"crm"
+	];
+	
+	if(response != null)
+	{
+		data_map = Map();
+		data = response.get("data");
+		for each  account in data
+		{
+			updateList = List();
+			Owner = account.get("Owner").get("id");
+			users = zoho.crm.getRecords("users");
+			users = users.get("users");
+			for each user in users
+            {
+				if ( Owner == user.get("id") ) 
+                {
+					Owner = user.get("full_name");
+					break;
+                }
+            }
+			Email = account.get("Email");
+			Phone = account.get("Phone");
+			data_map.put("Email", Email);
+			data_map.put("Phone", Phone);
+			data_map.put("Sales Person", Owner);
+			data_map.put("row_index", row_index);
+			datalist.add(data_map);
+			
+			
+		}
+	}
+			
+			
+			
+				
+			
+		
+	}
+	
+paramMap = Map();
+paramMap.put('method','worksheet.jsondata.set');
+paramMap.put('worksheet_name','customer_activity_for_mapping');
+paramMap.put('header_row',1);
+paramMap.put('json_data',datalist);
+response = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/" + resource_id
+	type :POST
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+info response;
+//===============================================================
+*/
+}

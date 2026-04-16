@@ -1,0 +1,33 @@
+void automation.update_customer_status_in_parent_account(Int acc_id)
+{
+status = list();
+acc_details = zoho.crm.getRecordById("Accounts",acc_id);
+Parent_Account = acc_details.get("Parent_Account");
+info Parent_Account;
+if(Parent_Account != null)
+{
+	Parent_id = Parent_Account.get("id");
+	Parent_resp = zoho.crm.getRelatedRecords("Child_Accounts","Accounts",Parent_id);
+	// 		info Parent_resp;
+	if(Parent_resp.size() > 0)
+	{
+		for each  resp in Parent_resp
+		{
+			Customer_Status = resp.get("Customer_Status");
+			if(Customer_Status == "Active")
+			{
+				info "Parent Account is Active";
+				status.add(Customer_Status);
+				update = zoho.crm.updateRecord("Accounts",Parent_id,{"Customer_Status":"Active"});
+				break;
+			}
+		}
+		info status.size();
+		if(status.size() == 0)
+		{
+			info "Parent Account is Dormant";
+			update = zoho.crm.updateRecord("Accounts",Parent_id,{"Customer_Status":"Dormant"});
+		}
+	}
+}
+}

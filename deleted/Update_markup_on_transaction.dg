@@ -1,0 +1,61 @@
+void automation.Update_markup_on_transaction(Int id)
+{
+transaction_details = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v3/Sales_Orders/" + id
+	type :GET
+	connection:"crm"
+];
+// info transaction_details;
+Account_Name = transaction_details.getJson("data").getJson("Account_Name").getJson("id");
+account_details = zoho.crm.getRecordById("Accounts",Account_Name);
+Markup = ifNull(account_details.get("Markup"),0.0);
+Bank_Rate = ifNull(transaction_details.getJson("data").getJson("Bank_Rate"),0.0);
+Ordered_Items = transaction_details.getJson("data").getJson("Ordered_Items");
+// info Ordered_Items;
+product_items = list();
+row_items = list();
+LanguagesData = List();
+for each  item in Ordered_Items
+{
+	proname = item.getJson("Product_Name").getJSON("name");
+	proid = item.getJson("Product_Name").getJSON("id");
+	Bid = ifNull(item.getJson("Bid"),0);
+	lineitem = Map();
+	lineitem.put("Product_Name",{"name":proname,"id":proid});
+	lineitem.put("Quantity",1);
+	lineitem.put("Markup",Markup);
+	lineitem.put("Bank_Rate",Bank_Rate);
+	product_items.add(lineitem);
+	d = List();
+	paramap = Map();
+	paramap.put("Ordered_Items",product_items);
+	d.add(paramap);
+	data = Map();
+	data.put("data",d);
+	crt = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v2.1/Sales_Orders/" + id
+		type :PUT
+		parameters:data.tostring()
+		connection:"crm"
+	];
+	info "update ----->" + crt;
+	row_id = item.getJson("id");
+	data1 = Map();
+	data1.put("id",id);
+	data1.put("Sale Items",{{"id":"5870915000000233419"},{"id":row_id,"_delete":null}});
+	dataList = List();
+	dataList.add(data1);
+	param = Map();
+	param.put("data",dataList);
+	response = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v6/Sales_Orders"
+		type :PUT
+		parameters:param.tostring()
+		connection:"crm"
+	];
+	info "delete ----->" + response;
+}
+}

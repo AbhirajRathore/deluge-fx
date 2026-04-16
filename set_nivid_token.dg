@@ -1,0 +1,43 @@
+string standalone.set_nivid_token()
+{
+json_hdr = {"Content-Type":"application/json"};
+// Fetch existing config_locations JSON from standalone variable
+loc_map_str = standalone.get_variable_value("config_locations","","");
+existing_list = loc_map_str.toList();
+// Loop through each location and update ONLY token
+for each  loc in existing_list
+{
+	code = loc.get("location_code");
+	if(code == null || code == "")
+	{
+		continue;
+	}
+	// Fetch API config for this location
+	api_response = standalone.get_variable_value("config_api",code,"");
+	api_map = api_response.toMap();
+	base_api = api_map.get("url");
+	api_user = api_map.get("user");
+	api_password = api_map.get("password");
+	api_location = api_map.get("location");
+	login_body = {"username":api_user,"password":api_password,"location":api_location};
+	login_resp = invokeurl
+	[
+		url :base_api + "/Login"
+		type :POST
+		body:login_body.toString()
+		headers:json_hdr
+	];
+	if(login_resp != null && login_resp.get("data") != null && login_resp.get("data").get("Token") != null)
+	{
+		new_token = login_resp.get("data").get("Token");
+		loc.put("token",new_token);
+	}
+}
+// Save updated list back
+valueMap = Map();
+valueMap.put("apiname","config_locations");
+valueMap.put("value",existing_list);
+resp = zoho.crm.invokeConnector("crm.set",valueMap);
+info resp;
+return "";
+}

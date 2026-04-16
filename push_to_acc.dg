@@ -1,0 +1,55 @@
+string button.push_to_acc(String id)
+{
+a = zoho.crm.getRecordById("KYC",id);
+// info a;
+Email = a.getJson("Email");
+Name = a.getJson("Name");
+Phone = a.getJson("company_phone_number");
+PAN = a.getJson("company_pan_number");
+Party_Type = a.getJson("Party_Type");
+GSTN = a.getJson("gst_number");
+bank_name = a.getJson("bank_name");
+bank_address = a.getJson("bank_address");
+account_holder_name = a.getJson("account_holder_name");
+account_number = a.getJson("account_number");
+IFSC_code = a.getJson("ifsc_code");
+////////////Address//////////////////
+address = a.getJson("Registered_Address_1_amp2");
+city = a.getJson("city");
+State = a.getJson("State");
+Country = a.getJson("Country");
+pincode = a.getJson("pincode");
+mp = Map();
+mp.put("Account_Name",Name);
+mp.put("Email",Email);
+mp.put("Phone",Phone);
+mp.put("PAN_Number",PAN);
+mp.put("Party_Type",Party_Type);
+mp.put("GST_Number",GSTN);
+mp.put("Account_Number",account_number);
+mp.put("Bank_Address",bank_address);
+mp.put("IFSC_Code",IFSC_code);
+s = List();
+p = Map();
+p.put("Address",address);
+p.put("City",city);
+p.put("Country",Country);
+p.put("Pincode",pincode.toString());
+p.put("State",State);
+s.add(p);
+mp.put("Address_Section",s);
+info mp;
+crt = zoho.crm.createRecord("Accounts",mp);
+info crt;
+acc_id = crt.getJson("id");
+openUrl("https://crm.kgkgroup.com/crm/org821143611/tab/Accounts/" + acc_id,"new window");
+if(crt.contains("DUPLICATE_DATA"))
+{
+	return "Error - " + crt;
+}
+else
+{
+	return "Record is Created in Accounts";
+	// 	openUrl("https://crmsandbox.zoho.com/crm/developmentenvironment1/tab/Accounts/"+ acc_id ,"new window");
+}
+}

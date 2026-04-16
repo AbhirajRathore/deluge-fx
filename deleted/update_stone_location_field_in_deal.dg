@@ -1,0 +1,16 @@
+void automation.update_stone_location_field_in_deal(Int deal_id)
+{
+resp = zoho.crm.getRelatedRecords("Inventory3","Deals",deal_id);
+if(resp.size() > 0)
+{
+	for each  stone in resp
+	{
+		Stones = stone.get("Stones").get("id");
+		stone_deatails = zoho.crm.getRecordById("Products",Stones);
+		location = stone_deatails.get("location");
+		update_deals = zoho.crm.updateRecord("Deals",deal_id,{"Stone_Location":location});
+		info update_deals;
+		break;
+	}
+}
+}

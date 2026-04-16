@@ -1,0 +1,4 @@
+void automation.Download_stock_list11()
+{
+info "Download_stock_list";
+}

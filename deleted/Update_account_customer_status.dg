@@ -1,0 +1,60 @@
+void automation.Update_account_customer_status(Int acc_id)
+{
+try 
+{
+	crm_env_url = standalone.get_variable_value("config_api","crm_env","url");
+	acc_details = zoho.crm.getRecordById("Accounts",acc_id);
+	acc_Created_Time = acc_details.get("Created_Time");
+	info "Account Created TIme: " + acc_Created_Time;
+	numberOfDays = daysBetween(acc_Created_Time,now);
+	info "Days Diff from Account Created Time to Now: " + numberOfDays;
+	if(numberOfDays >= 179)
+	{
+		queryMap = Map();
+		queryMap.put("select_query","select Created_Time, Name from International_Transaction where Account_Name.id = '" + acc_id + "' order by Created_Time desc limit 4 offset 0");
+		response = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v4/coql"
+			type :POST
+			body:queryMap.toString()
+			connection:"crm"
+		];
+		if(response != null)
+		{
+			records = response.get("data");
+			for each  tran in records
+			{
+				tarn_created_time = tran.get("Created_Time");
+				tran_numberOfDays = daysBetween(tarn_created_time,now);
+				info "Latest Transaction Created Days Ago: " + tran_numberOfDays;
+				break;
+			}
+			if(tran_numberOfDays >= 179)
+			{
+				status = "Dormant";
+			}
+			else
+			{
+				status = "Active";
+			}
+		}
+		else
+		{
+			status = "Dormant";
+		}
+	}
+	else
+	{
+		status = "Active";
+	}
+	info "Status: " + status;
+	update_account = zoho.crm.updateRecord("Accounts",acc_id,{"Customer_Status":status});
+	info "Update: " + update_account;
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Update Customer Status on Account Failed" + newline + " Account - " + crm_env_url + "/tab/Accounts/" + acc_id + newline + e,"cliq");
+	// 	info resp;
+}
+}

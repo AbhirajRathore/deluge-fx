@@ -1,0 +1,47 @@
+void automation.update_net_amount(Int dxi_id)
+{
+resp = zoho.crm.getRecordById("Deals_X_Inventory",dxi_id);
+Location = resp.get("Location");
+deal_stones = resp.get("deal_stones").get("id");
+Total = ifNull(resp.get("List_Total"),0.0).toDecimal();
+Carat = ifNull(resp.get("Carat"),0.0).toDecimal();
+Markup = ifNull(resp.get("Markup"),0.0).toDecimal();
+MSP = ifNull(resp.get("MSP"),0.0).toDecimal();
+disc_percent = ifNull(resp.get("disc_percent"),0.0).toDecimal();
+msp_per_carat = ifNull(resp.get("Rate"),0.0).toDecimal();
+if(msp_per_carat != 0)
+{
+	Rate = msp_per_carat;
+	Net_Amount = Carat * msp_per_carat;
+}
+else if(Total != 0.0)
+{
+	Net_Amount = Total.toDecimal() + Total.toDecimal() * (Markup + MSP + disc_percent) / 100;
+	if(Carat != 0)
+	{
+		Rate = Net_Amount / Carat;
+	}
+	else
+	{
+		Rate = 0;
+	}
+}
+else
+{
+	mspTotal = ifNull(resp.get("MSP_Total"),0.0).toDecimal();
+	Net_Amount = mspTotal + mspTotal * (Markup + MSP + disc_percent) / 100;
+	if(Carat != 0)
+	{
+		Rate = Net_Amount / Carat;
+	}
+	else
+	{
+		Rate = 0;
+	}
+}
+info Net_Amount.round(5);
+update = zoho.crm.updateRecord("Deals_X_Inventory",dxi_id,{"Net_Amount":Net_Amount.round(2).toString(),"Rate":Rate.toString()});
+info update;
+update_deal = zoho.crm.updateRecord("Deals",deal_stones,{"Stone_Location":Location});
+info "Update Deal: " + update_deal;
+}

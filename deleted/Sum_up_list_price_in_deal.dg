@@ -1,0 +1,25 @@
+void automation.Sum_up_list_price_in_deal(Int d_x_i_id)
+{
+Deal_x_inventory = zoho.crm.getRecordById("Deals_X_Inventory",d_x_i_id);
+Deals_with_the_listing_of_stone_Temp = Deal_x_inventory.get("deal_stones");
+Deal_id = Deals_with_the_listing_of_stone_Temp.get("id");
+Deal_inventory = zoho.crm.getRelatedRecords("Inventory3","Deals",Deal_id);
+// info Deal_inventory ;
+list_amount_total = 0.0;
+total_stones = 0;
+for each  Stone in Deal_inventory
+{
+	Stone_id = Stone.get("Stones").get("id");
+	Stone_details = zoho.crm.getRecordById("Products",Stone_id);
+	list_amount = Stone_details.get("list");
+	//info list_amount;
+	n = 1;
+	total_stones = total_stones + n;
+	list_amount_total = list_amount_total + list_amount;
+	//info "new Stone =====================";
+}
+// info "Total Stones - " + total_stones;
+info "Total List Amount - " + list_amount_total;
+Update_deal = zoho.crm.updateRecord("Deals",Deal_id,{"Amount":list_amount_total});
+info Update_deal;
+}

@@ -1,0 +1,29 @@
+void automation.assign_task_based_on_owner(Int task_id)
+{
+task_details = zoho.crm.getRecordById("Tasks",task_id);
+info task_details;
+Who_Id = task_details.get("Who_Id");
+What_Id = task_details.get("What_Id");
+if(Who_Id != null)
+{
+	rec_id = Who_Id.get("id");
+}
+else if(What_Id != null)
+{
+	rec_id = What_Id.get("id");
+}
+else
+{
+	info "No Data is found!";
+}
+info rec_id;
+module = task_details.get("$se_module");
+if(module == "Accounts")
+{
+	module = "Contacts";
+}
+rec_details = zoho.crm.getRecordById(module,rec_id);
+rec_owner = rec_details.get("Owner").get("id");
+update_task = zoho.crm.updateRecord("Tasks",task_id,{"Owner":rec_owner});
+info update_task;
+}

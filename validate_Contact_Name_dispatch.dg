@@ -1,0 +1,20 @@
+map validation_rule.validate_Contact_Name_dispatch(String crmAPIRequest)
+{
+entityMap = crmAPIRequest.toMap().get("record");
+info entityMap;
+Owner = entityMap.get("Owner").getJSON("name");
+Contact_Name = entityMap.get("Contact_Name").getJSON("name");
+info "Owner - " + Owner;
+info "Contact_Name - " + Contact_Name;
+response = Map();
+if(Contact_Name.matches(Owner))
+{
+	response.put('status','error');
+	response.put('message','Contact Name should not match with the Owner Name');
+}
+else
+{
+	response.put('status','success');
+}
+return response;
+}

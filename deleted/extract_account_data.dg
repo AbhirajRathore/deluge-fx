@@ -1,0 +1,22 @@
+void automation.extract_account_data()
+{
+queryMap = Map();
+queryMap.put("select_query","select id, ledger_code, Location from Accounts where Location != 'India' limit 2000 offset 8000");
+response = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v7/coql"
+	type :POST
+	parameters:queryMap.toString()
+	connection:"crm"
+];
+dataList = response.get("data");
+info response.get("info");
+// Prepend "zcrm_" to each ID
+updatedList = List();
+for each  record in dataList
+{
+	record.put("id","zcrm_" + record.get("id").toString());
+	updatedList.add(record);
+}
+info updatedList;
+}

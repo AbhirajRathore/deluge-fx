@@ -1,0 +1,10 @@
+void automation.update_user_id_on_record(Int con_id)
+{
+con_details = zoho.crm.getRecordById("Leads",con_id);
+user_id = con_details.get("user_id");
+if(user_id != "")
+{
+	update = zoho.crm.updateRecord("Leads",con_id,{"kgk_user_id":user_id});
+	info update;
+}
+}

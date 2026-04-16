@@ -1,0 +1,55 @@
+string standalone.update_ledger_code_webhook(String crmAPIRequest)
+{
+params = crmAPIRequest.get("params");
+old_ledger_code = params.get("old_ledger_code");
+new_ledger_code = params.get("new_ledger_code");
+location = params.get("location");
+location_list = standalone.get_variable_value("config_locations","","");
+for each  loc in location_list
+{
+	if(loc.get("location_code") == location)
+	{
+		ledger_prefix = loc.get("ledger_prefix");
+		break;
+	}
+}
+old_formatted = ledger_prefix + old_ledger_code;
+new_formatted = ledger_prefix + new_ledger_code;
+queryMap = Map();
+queryMap.put("select_query","select id, Account_Name, ledger_code from Accounts where ledger_code = '" + old_formatted + "' limit 1");
+response = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v8/coql"
+	type :POST
+	parameters:queryMap.toString()
+	connection:"crm"
+];
+// info response;
+if(response != null)
+{
+	if(response.get("data").size() > 0)
+	{
+		acc_id = response.get("data").get(0).get("id");
+		update = zoho.crm.updateRecord("Accounts",acc_id,{"ledger_code":new_formatted,"admin_ledger_code":new_formatted});
+		info update;
+		if(update.containKey("code"))
+		{
+			msg = update.get("code");
+		}
+		else
+		{
+			msg = "success";
+		}
+	}
+	else
+	{
+		msg = "Account_Not_Found";
+	}
+}
+else
+{
+	info "Account_Not_Found";
+	msg = "Account_Not_Found";
+}
+return msg;
+}

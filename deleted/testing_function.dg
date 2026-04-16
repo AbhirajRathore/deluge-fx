@@ -1,0 +1,593 @@
+void automation.testing_function()
+{
+queryMap = Map();
+queryMap.put("select_query","SELECT id, backend_bid_id, Stone.Product_Name From Live_Bidding where bid_from = 'Bid to Buy' and bidding_time >= '2026-03-01T00:00:00+05:30' limit 2000 offset 0");
+// 	info queryMap;
+response = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v4/coql"
+	type :POST
+	body:queryMap.toString()
+	connection:"crm"
+];
+info response.get("data");
+/*
+createlist = List();
+lot_ids = List();
+resource_id = "ako17937fd087d5734facb95a9ac678311852";
+paramMap = Map();
+paramMap.put("method","worksheet.records.fetch");
+paramMap.put("worksheet_name",'Sheet1');
+paramMap.put("header_row",1);
+// paramMap.put("records_start_index",2000);
+// paramMap.put("count",2);
+response = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/" + resource_id
+	type :Get
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+for each  rec in response.get("records")
+{
+	row_index = rec.get("row_index");
+	location = rec.get("location");
+	order_id = rec.get("t.Order_ID");
+	lot_id = rec.get("t.Stone_ID");
+	// 	lot_ids.add
+	queryMap = Map();
+	queryMap.put("select_query","SELECT id, Product_Name, location, deal_id From Products where location = '" + location + "' and Product_Name = '" + lot_id + "' limit 1 offset 0");
+	// 	info queryMap;
+	response = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v4/coql"
+		type :POST
+		body:queryMap.toString()
+		connection:"crm"
+	];
+	// 	info response;
+	if(response != NULL)
+	{
+		for each  stn in response.get("data")
+		{
+			datamap = Map();
+			datamap.put('row_index',row_index);
+			datamap.put('crm_stn_id',ifNull("zcrm_" + stn.get("id"),""));
+			datamap.put('crm_deal_id',ifNull("zcrm_" + stn.get("deal_id"),""));
+			createlist.add(datamap);
+		}
+	}
+	else
+	{
+		continue;
+	}
+	// 	break;
+}
+info createlist;
+paramMap = Map();
+paramMap.put('method','worksheet.jsondata.set');
+paramMap.put('worksheet_name','Sheet1');
+paramMap.put('header_row',1);
+paramMap.put('json_data',createlist);
+response = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/" + resource_id
+	type :POST
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+info "update sheet " + response;
+
+	
+	
+	// Update Sale Date
+// .
+// .
+// .
+// .
+// .
+
+
+
+
+
+
+
+update_inv_lst = List();
+more_records = true;
+iterations = "".leftpad(10).toList("");
+offset = 0;
+limit = 1000;
+for each  iteration in iterations
+{
+	if(more_records)
+	{
+		queryMap = Map();
+		queryMap.put("select_query","SELECT id, Ref_Date FROM International_Transaction where Ref_Date like '%/%' and Sale_Date is null LIMIT " + limit + " OFFSET " + offset);
+		response = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v4/coql"
+			type :POST
+			body:queryMap.toString()
+			connection:"crm"
+		];
+		more_records = response.get("info").get("more_records");
+		if(response.containsKey("data"))
+		{
+			for each  rec in response.get("data")
+			{
+				id = rec.get("id");
+				ref_date = rec.get("Ref_Date");
+				try 
+				{
+					Sale_Date = ref_date.toDate("dd/MMM/yy");
+					mp = Map();
+				}
+				catch (e)
+				{
+					info id;
+					info ref_date;
+					info e;
+					continue;
+				}
+				mp.put("id",ifNull(rec.get("id"),""));
+				mp.put("Sale_Date",Sale_Date);
+				update_inv_lst.add(mp);
+			}
+		}
+		// 		info update_inv_lst;
+		offset = offset + limit;
+	}
+	else
+	{
+		break;
+	}
+}
+if(update_inv_lst.size() > 0)
+{
+	iterations = "".leftpad(2000).toList("");
+	for each  i in iterations
+	{
+		if(update_inv_lst.isEmpty())
+		{
+			break;
+		}
+		if(update_inv_lst.size() > 100)
+		{
+			batch = update_inv_lst.subList(0,100);
+		}
+		else
+		{
+			batch = update_inv_lst;
+		}
+		zoho.crm.bulkUpdate("International_Transaction",batch,{"trigger":{"workflow"}});
+		update_inv_lst.removeAll(batch);
+	}
+}
+// .
+// .
+// .
+// .
+// End 
+
+current_date = zoho.currentdate.subDay(90);
+info current_date;
+dd = 0;
+info dd;
+iteration = "".leftPad(90).toList("");
+// 	iteration = "".leftPad(current_date.subDay(1).getDay()).toList("");
+for each  dt in iteration
+{
+	Ref_Date = current_date.addDay(dd).toString("dd/MMM/yy").toUpperCase();
+	nivid_fromDate = current_date.addDay(dd).toString("dd/MMM/yyyy");
+	nivid_toDate = current_date.addDay(dd).toString("dd/MMM/yyyy");
+	dd = dd + 1;
+	info "CRM REF DATE - " + Ref_Date;
+}
+
+rec_list = list();
+page = 1;
+page_iterations = "".leftpad(100).toList("");
+for each  test in page_iterations
+{
+	payload = {"group_operator":"AND","group":{{"field":{"api_name":"module"},"comparator":"equal","value":"Accounts"}}};
+	url_str = "https://www.zohoapis.com/crm/v7/settings/recycle_bin?filters=" + encodeUrl(payload.toString()) + "&page=" + page + "&per_page=200";
+	// info url_str;
+	response = invokeurl
+	[
+		url :url_str
+		type :GET
+		connection:"crm"
+	];
+	recycle_bin = response.get("recycle_bin");
+	if(recycle_bin.size() > 0)
+	{
+		for each  elm in recycle_bin
+		{
+			rec_list.add(elm.get("id"));
+		}
+		page = page + 1;
+	}
+}
+// logging
+info "Total ids collected: " + rec_list.size().toString();
+info "Pages requested: " + page.toString();
+if(rec_list.size() > 0)
+{
+	iterations = "".leftpad(100).toList("");
+	for each  iteration in iterations
+	{
+		if(rec_list.size() == 0)
+		{
+			break;
+		}
+		// 		for less than 100 records ...................
+		else if(rec_list.size() <= 100 && rec_list.size() > 0)
+		{
+			url_str = "https://www.zohoapis.com/crm/v7/settings/recycle_bin?ids=" + encodeUrl(rec_list);
+			response = invokeurl
+			[
+				url :url_str
+				type :DELETE
+				connection:"crm"
+			];
+			info response;
+			break;
+		}
+		else if(rec_list.size() > 100)
+		{
+			newListVar = rec_list.subList(0,100);
+			url_str = "https://www.zohoapis.com/crm/v7/settings/recycle_bin?ids=" + encodeUrl(newListVar);
+			response = invokeurl
+			[
+				url :url_str
+				type :DELETE
+				connection:"crm"
+			];
+			info response;
+			rec_list.removeAll(newListVar);
+		}
+	}
+}
+
+	info zoho.crm.updateRecord("Deals",5870915000217488019, {"order_id":"order_01KB4JVVV631EVP90YMQZG1HHG"});
+	
+// 	==============================================
+	queryMap = Map();
+	queryMap.put("select_query","SELECT id, user_id FROM Contacts WHERE user_id in ('cus_01JB9XYTTV95D5X4YMZGXSFNHG','cus_01JDH2EP81QFVWD768NB3N2Y9Q','cus_01KAWPAMZ2XR0E3AMG452NWPFN','cus_01JJ3V1Q0CVGQWJ35QN4P14N60','cus_01JDH24G8DZHPXDEF0B0BAPV8J','cus_01JDH26GX8YMZBDYZCZF6NA1TZ','cus_01J0QZDFZWFDPE3G5YPSJR25VT','cus_01JDH26ET2MMGXF41AA1V37XZ0','cus_01JDH2DP5A1SKC777F384NNYQJ','cus_01JDH2DR2H6P36Y3AS6M0Q6NMM','cus_01JDH2DS4P49K1762EX9T33W7A','cus_01JDH2DTJADR07VEKD0JMY7S1J','cus_01JDH2DVK0H3Q7847JFJ5RA1DA','cus_01JDH2DXRCVAK08S7ETG21JGPW','cus_01HWMMZKZ4BF0ZYGZEFGC5A5MP','cus_01JDH2DYYWHDWRXEKX5TG4QAG2','cus_01JDH2E06781A0VE0HJ533YZQT','cus_01JAT26HC1FVSCWA89VQW85NJQ','cus_01JDH2E35YKQSBN10C9BE4MB86','cus_01HSWYKASJ6TVDWVYZB6GK0R15','cus_01JDH2E4Y5EPC9SMRXWEF3W9D3','cus_01JDH2E6HB3B4TC04VQ90F03JV','cus_01JDH2E88H0DN6PEN9R1CMS2X4','cus_01JDH2EA8Y618Y6JRN8B268V42','cus_01JDH2EC529C0TFCP8MR8W5AEP','cus_01JDH2ED9EYJF32DGT736PASWQ','cus_01JF7P0VWWKXQV3Z8XCZ7JPXQF','cus_01JDH2EEVCAS586SHAZES414KB','cus_01JDH2EGTHKMZ4GAMNSF2TZ7WX','cus_01JDH2EJJ3MHG58DMK7K3GFJ9D','cus_01JDH2EKXX47RT5M6R8TEEXR5P','cus_01JDH2EN02V8WSPFMP51DMEFZA','cus_01J4NQJHBY47WVQR05MCZJY327','cus_01J806VB0E82GSABMXHQVDMSM1','cus_01JDH2EQ96PWZ8A4KHT27CG996','cus_01J5WHBY35XE4F5FJWXZ55Z38Y','cus_01J7XHJ2HTVRF7TWAJ4QGW7XHB','cus_01K9VVR7JBNRR8JKB5675WFAGQ','cus_01J8071HX7RXWXZNAF52J2VJ13','cus_01J8071WS2CYD7W7J04VJ6FV3G','cus_01J8MQZED7KB3DEH24YJ663J82','cus_01K9W21KSRQ8NBJ7MSM693YT13','cus_01JD29X7C5E4B1ZK5W6KT57EHG','cus_01JJS01DZ14DJBQ3MHD221TVN1','cus_01JDM4KAE20JPQ1STG7KQMED4F','cus_01JF8VPK4QWK6ZCHM45W0W4591','cus_01JDPKGJ542Y6J07DRVEQASZF6','cus_01KAGRDD1X44JCM1JYE19YK1BM','cus_01JJ2A4NEMPBPD8BWQ6H1AQ7MX','cus_01JJ2AXHFBGZAD5JVN2SW68T9J','cus_01JJ2B1EBP87X4CAQ9HC22DS98','cus_01JJ3V5R5DJJKVZQKTSYYEGDWZ','cus_01JJ3V6TQWJT13YD1QVFHN85T6','cus_01JC7S7WNC1P70688KQWP44K8W','cus_01K9Q0YCYBGG58K0BV2ACKJNBA','cus_01JQX3G6ZZSNDZP47VTXX8HBXQ','cus_01KATTSBSZBRFGGHEX46CYKRK4','cus_01K7C67XQN93XYDZ05GBNYYT38','cus_01HW22KXKYEKYGXNY2JWY83QPA','cus_01K7A7MCHDJSZZ5SZE06HHN6P7','cus_01K2G0910V5JQF44HFHW7DFM5G','cus_01HWMMKF9A8DGCP1Y26VEKXCDE','cus_01JTNJ7WJXNM1ZMZCCARYRHZD4','cus_01JV1T2XA90K8PTCBE2MDY9W4E','cus_01HT24D7SR14EG8ET30YS3E9HP') limit 2000 offset 0");
+
+		response = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v4/coql"
+			type : POST
+			body : queryMap.toString()
+			connection : "crm"
+		];
+		info response;
+
+	==========================================================
+acc  = [{"nivid_ledger_sync_id":29711,"ledger_code":41181005049,"sub_ledger_code":41181005049,"ledger_name":"LEVIEV USA LLC (C)","sub_ledger_shortname":"41181005049","ledger_display_name":"LEVIEV USA LLC","account_type_code":28,"account_type_name":"SUNDRY DEBTORS","location_code":62,"location_name":"NEW YORK","party_type":"LOCAL","ledger_group_code":0,"active":1,"sale_pur_person":183,"purchase_by_name":"ALEX","party_currency":"DDA","is_broker":1,"is_import_export":1,"office_address":"590 FIFTH AVE 19TH FLOOR, NEW YORK, NY 10036","office_state_name":null,"office_country_name":"United States","office_phone_num":"212-869-8682","office_email":"ELI@LEVIEV.COM","office_fax":null,"factory_address":"590 FIFTH AVE 19TH FLOOR, NEW YORK, NY 10036","factory_state_name":null,"factory_country_code":"United States","factory_phone_num":"212-869-8682","factory_email":"ELI@LEVIEV.COM","factory_fax":null,"bank_name":null,"ifsc_code":null,"bank_account_num":null,"name_as_per_bank":"LEVIEV USA LLC","transaction_limit":60000,"entry_date":"2025-10-23T10:07:19","update_date":null,"check_date":null,"customer_info":"Polished Wholesalers / Traders","Customer_Status":"Active","last_tran_date":null,"Priority":"P1","terms":30},{"nivid_ledger_sync_id":29857,"ledger_code":41181005052,"sub_ledger_code":41181005052,"ledger_name":"TRULY YOURS FJG LLC (C)","sub_ledger_shortname":"41181005052","ledger_display_name":"TRULY YOURS FJG LLC","account_type_code":28,"account_type_name":"SUNDRY DEBTORS","location_code":62,"location_name":"NEW YORK","party_type":"LOCAL","ledger_group_code":0,"active":1,"sale_pur_person":251,"purchase_by_name":"MOHAK","party_currency":"DDA","is_broker":1,"is_import_export":1,"office_address":"50 W 47 TH STREET, SUITE 1101 C/O DDC NEW YORK, NY 10036","office_state_name":null,"office_country_name":"United States","office_phone_num":"917-656-5632","office_email":"RAI@TRULYYOURSFJ.COM","office_fax":null,"factory_address":"50 W 47 TH STREET, SUITE 1101 C/O DDC NEW YORK, NY 10036","factory_state_name":null,"factory_country_code":"United States","factory_phone_num":"917-656-5632","factory_email":"RAI@TRULYYOURSFJ.COM","factory_fax":null,"bank_name":null,"ifsc_code":null,"bank_account_num":null,"name_as_per_bank":"TRULY YOURS FJG LLC","transaction_limit":25000,"entry_date":"2025-10-23T10:07:19","update_date":null,"check_date":null,"customer_info":"Jewellery Wholesalers / Traders","Customer_Status":"Active","last_tran_date":null,"Priority":"P2","terms":517},{"nivid_ledger_sync_id":29859,"ledger_code":41181005051,"sub_ledger_code":41181005051,"ledger_name":"SIGNET JEWELERS (C)","sub_ledger_shortname":"41181005051","ledger_display_name":"SIGNET JEWELERS","account_type_code":28,"account_type_name":"SUNDRY DEBTORS","location_code":62,"location_name":"NEW YORK","party_type":"LOCAL","ledger_group_code":0,"active":1,"sale_pur_person":261,"purchase_by_name":"VEDANT KOTHARI","party_currency":"DDA","is_broker":1,"is_import_export":1,"office_address":"375 GHENT RD, FAIRLAWN, OH 44333","office_state_name":null,"office_country_name":"United States","office_phone_num":"330-668-5000","office_email":"SIGNETJEWELERS.COM","office_fax":null,"factory_address":"375 GHENT RD, FAIRLAWN, OH 44333","factory_state_name":null,"factory_country_code":"United States","factory_phone_num":"330-668-5000","factory_email":"SIGNETJEWELERS.COM","factory_fax":null,"bank_name":null,"ifsc_code":null,"bank_account_num":null,"name_as_per_bank":"SIGNET JEWELERS","transaction_limit":2000000,"entry_date":"2025-10-23T10:07:19","update_date":null,"check_date":null,"customer_info":"Other","Customer_Status":"Active","last_tran_date":"2025-11-26T00:00:00","Priority":"P1","terms":30}];
+	for each rec in acc
+	{
+	loc_map_str = standalone.get_variable_value("config_locations","","");
+	// 	info loc_map_str;
+	loc_list = loc_map_str.toList();
+	for each loc in loc_list
+    {
+		if ( loc.get("location_name") == rec.get("location_name").proper() ) 
+    {
+			code = loc.get("location_code");
+			name = loc.get("location_name");
+			ledger_prefix = loc.get("ledger_prefix");
+    }
+    }
+	
+	
+
+					main_map = Map();
+					main_map.put("ledger_code",ledger_prefix + rec.get("ledger_code"));
+					main_map.put("admin_ledger_code",ledger_prefix + rec.get("ledger_code"));
+					main_map.put("nivid_ledger_sync_id",rec.get("nivid_ledger_sync_id"));
+					main_map.put("Account_Name",rec.get("ledger_name"));
+					main_map.put("ledger_display_name",rec.get("ledger_display_name"));
+					if(rec.get("account_type_code") != null)
+					{
+						account_type_code = rec.get("account_type_code").toNumber();
+					}
+					main_map.put("account_type_code",ifNull(account_type_code,""));
+					main_map.put("account_type_name",ifNull(rec.get("account_type_name"),""));
+					if(rec.get("location_code") != null)
+					{
+						location_code = rec.get("location_code").toNumber();
+					}
+					main_map.put("location_code",ifNull(location_code,0));
+					main_map.put("Location",name);
+					main_map.put("party_type",ifNull(rec.get("party_type"),""));
+					if(rec.get("ledger_group_code") != null)
+					{
+						ledger_group_code = rec.get("ledger_group_code").toNumber();
+					}
+					main_map.put("ledger_group_code",ifNull(ledger_group_code,""));
+					if(rec.get("active") > 0)
+					{
+						main_map.put("active",true);
+					}
+					else
+					{
+						main_map.put("active",false);
+					}
+					if(rec.get("is_broker") > 0)
+					{
+						main_map.put("is_broker",true);
+					}
+					else
+					{
+						main_map.put("active",false);
+					}
+					if(rec.get("is_import_export") > 0)
+					{
+						main_map.put("is_import_export",true);
+					}
+					else
+					{
+						main_map.put("is_import_export",false);
+					}
+					if(rec.get("purchase_by_name") != null)
+					{
+						purchase_by_name = rec.get("purchase_by_name").proper();
+					}
+					main_map.put("purchase_by_name",ifNull(purchase_by_name,""));
+					main_map.put("office_phone_num",ifNull(rec.get("office_phone_num"),""));
+					main_map.put("office_email",ifNull(rec.get("office_email"),""));
+					main_map.put("office_fax",ifNull(rec.get("office_fax"),""));
+					main_map.put("factory_address",ifNull(rec.get("factory_address"),""));
+					main_map.put("factory_state_name",ifNull(rec.get("factory_state_name"),""));
+					main_map.put("factory_country_code",ifNull(rec.get("factory_country_code"),""));
+					main_map.put("factory_phone_num",ifNull(rec.get("factory_phone_num"),""));
+					main_map.put("factory_email",ifNull(rec.get("factory_email"),""));
+					main_map.put("factory_fax",ifNull(rec.get("factory_fax"),""));
+					main_map.put("bank_name",ifNull(rec.get("bank_name"),""));
+					main_map.put("ifsc_code",ifNull(rec.get("ifsc_code"),""));
+					main_map.put("bank_account_num",ifNull(rec.get("bank_account_num"),""));
+					main_map.put("name_as_per_bank",ifNull(rec.get("name_as_per_bank"),""));
+					if(rec.get("transaction_limit") != null)
+					{
+						transaction_limit = rec.get("transaction_limit").toDecimal();
+					}
+					main_map.put("transaction_limit",ifNull(transaction_limit,0.0));
+					main_map.put("entry_date",ifNull(rec.get("entry_date"),""));
+					main_map.put("customer_info",ifNull(rec.get("customer_info"),""));
+					main_map.put("Customer_Status",ifNull(rec.get("Customer_Status"),""));
+					raw_date = rec.get("last_tran_date");
+					// "2025-11-17"
+					if(raw_date != null)
+					{
+						dt = raw_date.toDate();
+						safe_dt = dt.toString("yyyy-MM-dd") + "T12:00:00";
+						main_map.put("last_tran_date",safe_dt);
+					}
+					else
+					{
+						main_map.put("last_tran_date",null);
+					}
+					// 				main_map.put("last_tran_date",ifNull(rec.get("last_tran_date"),""));
+					main_map.put("Priority",ifNull(rec.get("Priority"),""));
+					main_map.put("terms",ifNull(rec.get("terms"),""));
+					main_map.put("office_address",ifNull(rec.get("office_address"),""));
+					main_map.put("office_state_name",ifNull(rec.get("office_state_name"),""));
+					main_map.put("office_country_name",ifNull(rec.get("office_country_name"),""));
+					// 			info main_map;
+					upsert_acc = zoho.crm.upsert("Accounts",main_map,{"duplicate_check_fields":{"ledger_code"}});
+					info upsert_acc;
+					}
+
+all_accounts = List();
+offset_val = 0;
+more = true;
+iterations = "".leftpad(50).toList("");
+for each i in iterations
+{
+	if(more)
+	{
+		queryMap = Map();
+		queryMap.put("select_query","SELECT id, ledger_code, Account_Name FROM Accounts WHERE Location = 'India' and ledger_code not in (' ') limit 2000 offset " + offset_val);
+
+		response = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v4/coql"
+			type : POST
+			body : queryMap.toString()
+			connection : "crm"
+		];
+
+		records = response.get("data");
+		if(records != null)
+		{
+			for each acc in records
+			{
+				all_accounts.add(acc);
+			}
+		}
+
+		// pagination
+		if(response.containsKey("info"))
+		{
+			if(response.get("info").get("more_records") == false)
+			{
+				more = false;
+				info "No More Accounts";
+				break;
+			}
+			else
+			{
+				offset_val = offset_val + 2000;
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+}
+info offset_val;
+// final output
+// info all_accounts;   
+file_object = all_accounts.toFile("CRM Accounts");
+info file_object;   
+ response = zoho.crm.attachFile("Accounts",5870915000207121191,file_object);
+ info response;
+=======================================
+
+createlist = list();
+resource_id = "l33sw8cac3aebd24a4234ac6a86a6c7fca264";
+paramMap = Map();
+paramMap.put("method","worksheet.records.fetch");
+paramMap.put("worksheet_name",'Sheet1');
+paramMap.put("header_row",1);
+// paramMap.put("records_start_index",2000);
+// paramMap.put("count",2);
+response = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/" + resource_id
+	type :Get
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+// info response;
+datalist = list();
+for each  rec in response.get("records")
+{
+	
+	row_index = rec.get("row_index");
+	email = rec.get("Contact Email");
+// 	lot_id = rec.get("lot_id").toString();
+// 	info lot_id;
+	queryMap = Map();
+	queryMap.put("select_query","SELECT id, user_id,Email FROM Contacts WHERE Email = '"+email +"' limit 1 offset 0");
+// 	info queryMap;
+	response = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v4/coql"
+		type :POST
+		body:queryMap.toString()
+		connection:"crm"
+	];
+	info response;
+	if(response != NULL)
+	{
+		
+		for each  stn in response.get("data")
+		{
+			Stone_Id = ifNull(stn.get("user_id"),"");
+			
+		}
+	
+		datamap = Map();
+		datamap.put('user_id',Stone_Id);
+		datamap.put('row_index',row_index);
+		datalist.add(datamap);
+	}
+
+}
+info datalist;
+
+paramMap = Map();
+paramMap.put('method','worksheet.jsondata.set');
+paramMap.put('worksheet_name','Sheet1');
+paramMap.put('header_row',1);
+paramMap.put('json_data',datalist);
+response = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/" + resource_id
+	type :POST
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+info "update sheet " + response;
+==================================================
+
+
+// info	zoho.crm.updateRecord("Accounts", 5870915000045108366, {"ledger_code":"DXB11161500225","admin_ledger_code":"DXB11161500225"});
+	
+	
+
+// 	info zoho.crm.updateRecord("Contacts", 5870915000209200031, {"user_id":"cus_01KAEGQPSNFS8AQ58R02PNSP1E"});
+	
+	queryMap = Map();
+queryMap.put("select_query","SELECT id,Email,user_id, First_Name, Last_Name, Account_Name.Account_Name FROM Contacts WHERE user_id not in ('') limit 2000 offset 4000");
+response = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v4/coql"
+	type :POST
+	body:queryMap.toString()
+	connection:"crm"
+];
+info response.get("data");
+
+if ( response != NULL ) 
+    {
+		for each stn in response.get("data")
+{
+	old_id = stn.get("id");
+	
+}
+}
+// New =============================
+queryMap = Map();
+queryMap.put("select_query","SELECT id,ledger_code FROM Accounts WHERE ledger_code in ('"+new+"') limit 2 offset 0");
+response = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v4/coql"
+	type :POST
+	body:queryMap.toString()
+	connection:"crm"
+];
+info response;
+if ( response != NULL ) 
+    {
+		for each stn in response.get("data")
+{
+	new_id = stn.get("id");
+	
+}
+}
+info "New: "+new_id;
+info "old: "+old_id;
+
+	
+if (new_id != null && old_id != null)
+{
+//     // Step 1: Clear ledger codes before merging
+//     clear_data = Map();
+//     clear_data.put("ledger_code", "");
+//     clear_data.put("admin_ledger_code", "");
+//     update_clear = zoho.crm.updateRecord("Accounts", old_id.toLong(), clear_data);
+//     info "Cleared ledger fields: " + update_clear;
+
+ 
+
+
+body = {"merge":{{"data":{{"id":new_id,"_fields":{{"api_name":"ledger_code"}}}}}}};
+
+merge_response = invokeurl
+[
+    url :"https://www.zohoapis.com/crm/v8/Accounts/" + old_id + "/actions/merge"
+    type :POST
+   parameters:body.toString()
+	headers:{"Content-Type":"application/json"}
+    connection:"crm"
+];
+info "Merge response: " + merge_response;
+
+
+    // Step 3: Restore ledger codes to the new merged record
+    update_after_merge = Map();
+    update_after_merge.put("ledger_code", new);
+    update_after_merge.put("admin_ledger_code", new);
+    update_resp = zoho.crm.updateRecord("Accounts", old_id.toLong(), update_after_merge);
+    info "Updated new account ledger fields: " + update_resp;
+}
+
+
+*/
+}

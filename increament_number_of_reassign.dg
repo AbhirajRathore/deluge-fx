@@ -1,0 +1,6 @@
+void automation.increament_number_of_reassign(Int lead_id,Int num)
+{
+num = ifNull(num,0);
+resp = zoho.crm.updateRecord("Leads",lead_id,{"Number_of_Re_assign":num + 1});
+info resp;
+}

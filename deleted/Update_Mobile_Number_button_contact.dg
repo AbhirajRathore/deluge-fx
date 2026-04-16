@@ -1,0 +1,17 @@
+string button.Update_Mobile_Number_button_contact(String id)
+{
+idList = id.toList("|||");
+for each  lead_id in idList
+{
+	lead_details = zoho.crm.getRecordById("Contacts",lead_id);
+	Phone = lead_details.get("Phone");
+	if(Phone != null)
+	{
+		formatted = Phone.replaceAll(" ","");
+		info formatted;
+		update_mobile = zoho.crm.updateRecord("Contacts",lead_id,{"Mobile":formatted});
+		info update_mobile;
+	}
+}
+return "Updated the Mobile Numbers";
+}

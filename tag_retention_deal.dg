@@ -1,0 +1,175 @@
+string standalone.tag_retention_deal()
+{
+try 
+{
+	deal_id_list = list();
+	// ---------- CONFIG ----------
+	loc_map_str = standalone.get_variable_value("config_locations","","");
+	// 	info loc_map_str;
+	loc_list = loc_map_str.toList();
+	for each  loc in loc_list
+	{
+		try 
+		{
+			location_code = loc.get("location_code");
+			location_name = loc.get("location_name");
+			// 			info location_name;
+			// -------------------------------
+			// STEP 0: Fetch Products (already working logic)
+			// -------------------------------
+			queryMap = Map();
+			queryMap.put("select_query","select id, Product_Name, deal_id,Deal_by.id, location from Products where ((tran_status = 'STOCK' and lot_location = 'WEB ORDERS') and (location = '" + location_code + "' and deal_id is not null)) limit 2000");
+			response = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v8/coql"
+				type :POST
+				parameters:queryMap.toString()
+				connection:"crm"
+			];
+			// info response;
+			if(response == null || response.get("data") == null)
+			{
+				// 	info "No data found";
+				continue;
+			}
+			records = response.get("data");
+			// -------------------------------
+			// STEP 1: Build DISTINCT deal_id list
+			// -------------------------------
+			distinctDealMap = Map();
+			for each  rec in records
+			{
+				dealId = rec.get("deal_id");
+				if(dealId != null && !distinctDealMap.containsKey(dealId))
+				{
+					distinctDealMap.put(dealId,true);
+				}
+			}
+			distinctDealIds = distinctDealMap.keys();
+			// info distinctDealIds;
+			// info "Distinct Deal IDs Count : " + distinctDealIds.size();
+			// -------------------------------
+			// STEP 2: Loop on DISTINCT deal IDs
+			// -------------------------------
+			for each  rec in records
+			{
+				// dealId in distinctDealIds
+				dealId = rec.get("deal_id");
+				Owner = rec.get("Deal_by.id");
+				// ----------------------------------
+				// STEP 2.1: Search Deal / Parent Deal
+				// ----------------------------------
+				dealQuery = Map();
+				// 				dealQuery.put("select_query","select id, Deal_Name from Deals where ((Stone_Location = '" + location_code + "' and Stage not like '%Closed%') and (id = '" + dealId + "' or parent_deal = '" + dealId + "')) limit 1");
+				dealQuery.put("select_query","select id, Deal_Name from Deals where ((Stone_Location = '" + location_code + "') and (id = '" + dealId + "' or parent_deal = '" + dealId + "')) limit 1");
+				dealResp = invokeurl
+				[
+					url :"https://www.zohoapis.com/crm/v8/coql"
+					type :POST
+					parameters:dealQuery.toString()
+					connection:"crm"
+				];
+				// 	info dealResp;
+				if(dealResp == null || dealResp.get("data") == null || dealResp.get("data").isEmpty())
+				{
+					// STEP 4: Deal does NOT exist
+					info "parent deal does not exists : " + dealId;
+					//Clone this deal to new deal in new location 
+					//parent id = dealId
+					clone_query = {"data":{{"Stage":"Requirements Gathering","Account_Name":"","Location":location_name,"Stones":{},"Owner":Owner,"parent_deal":dealId,"Stone_Location":location_code,"Amount":0.0,"quantity":0,"total_carat":0.0,"Bill_to_Party":""}}};
+					clone_deal = invokeurl
+					[
+						url :"https://www.zohoapis.com/crm/v8/Deals/" + dealId + "/actions/clone"
+						type :POST
+						parameters:clone_query.toString()
+						connection:"crm"
+					];
+					// 					info clone_deal;
+					if(clone_deal.containsKey("data"))
+					{
+						new_deal_id = clone_deal.get("data").get(0).get("details").get("id");
+						// 			info "New Deal ID: " + new_deal_id;
+					}
+					//continue;
+				}
+				else
+				{
+					//deal exists
+					new_deal_id = dealResp.get("data").get(0).get("id");
+				}
+				//deal x inventory -> where deal_id = new_deal_id and  barcode = rec.get("barcode");
+				DIXQuery = Map();
+				DIXQuery.put("select_query","select id, deal_stones.id from Deals_X_Inventory where deal_stones.id = '" + new_deal_id + "' and Stones.Product_Name = '" + rec.get("Product_Name") + "' limit 1");
+				DIXResp = invokeurl
+				[
+					url :"https://www.zohoapis.com/crm/v8/coql"
+					type :POST
+					parameters:DIXQuery.toString()
+					connection:"crm"
+				];
+				// 	info DIXResp;
+				if(DIXResp == null || DIXResp.get("data") == null || DIXResp.get("data").isEmpty())
+				{
+					//if does not exist then clone deal x invenotry where deal id = dealId and stone = barcode.
+					DXIQuery = Map();
+					DXIQuery.put("select_query","select id,Stones.Product_Name from Deals_X_Inventory where Stones.Product_Name = '" + rec.get("Product_Name") + "' and deal_stones.id = '" + dealId + "' limit 1");
+					DIXResp = invokeurl
+					[
+						url :"https://www.zohoapis.com/crm/v8/coql"
+						type :POST
+						parameters:DXIQuery.toString()
+						connection:"crm"
+					];
+					// 		info DIXResp;
+					if(DIXResp == null || DIXResp.get("data") == null || DIXResp.get("data").isEmpty())
+					{
+						continue;
+					}
+					else
+					{
+						DIXstn_id = DIXResp.get("data").get(0).get("id");
+						clone_query = {"data":{{"deal_stones":new_deal_id,"Owner":Owner,"Stones":{"name":rec.get("Product_Name"),"id":rec.get("id")},"Location":location_code}}};
+						// 			info clone_query;
+						clone_DIX = invokeurl
+						[
+							url :"https://www.zohoapis.com/crm/v8/Deals_X_Inventory/" + DIXstn_id + "/actions/clone"
+							type :POST
+							parameters:clone_query.toString()
+							connection:"crm"
+						];
+						// 			info clone_DIX;
+					}
+					deal_id_list.add(new_deal_id);
+				}
+				else
+				{
+					// else continue;
+					continue;
+				}
+			}
+		}
+		catch (e)
+		{
+			newline = hextoText("0A");
+			resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Tag Retention Deal function failed for " + location_name + newline + e,"cliq");
+			info "Failed Response: " + e;
+			continue;
+		}
+	}
+	if(deal_id_list != null && deal_id_list.size() > 0)
+	{
+		deal_id_list = deal_id_list.distinct();
+		for each  deal_id in deal_id_list
+		{
+			info standalone.tag_retention_email(deal_id);
+		}
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Tag Retention Deal function failed." + newline + e,"cliq");
+	info "Failed Response: " + e;
+}
+return "";
+}

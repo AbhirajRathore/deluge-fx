@@ -1,0 +1,49 @@
+void automation.update_amount_on_transaction(Int id)
+{
+try 
+{
+	Amount = 0.0;
+	total_carat = 0.0;
+	quantity = 0;
+	iterations = "".leftpad(20 - 1).toList("");
+	pageCounter = 1;
+	numRecords = 0;
+	for each  iteration in iterations
+	{
+		page = pageCounter;
+		perPage = 200;
+		tran_item = zoho.crm.getRelatedRecords("Inventory","International_Transaction",id,page,200);
+		if(tran_item.size() <= 0)
+		{
+			break;
+		}
+		else
+		{
+			for each  stone in tran_item
+			{
+				Net_Amount = ifNull(stone.get("Net_Amount"),0.0);
+				Amount = Amount + Net_Amount;
+				Carat = ifNull(stone.get("Carat"),0.0);
+				total_carat = total_carat + Carat;
+				quantity = quantity + 1;
+			}
+		}
+		pageCounter = pageCounter + 1;
+		numRecords = numRecords + tran_item.size();
+	}
+	mp = Map();
+	mp.put("Amount",Amount);
+	mp.put("total_carat",total_carat);
+	mp.put("quantity",quantity);
+	update = zoho.crm.updateRecord("International_Transaction",id,mp);
+	info mp;
+	info update;
+}
+catch (e)
+{
+	newLine = hexToText("0A");
+	errorMsg = "Amount Update Failed on Sale :" + newLine + "https://crm.zoho.com/crm/org821143611/tab/CustomModule7/" + id + newLine + "Error: " + e.toString();
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983",errorMsg,"cliq");
+	info resp;
+}
+}

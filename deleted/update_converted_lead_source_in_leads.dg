@@ -1,0 +1,31 @@
+string button.update_converted_lead_source_in_leads(String id)
+{
+// 	idList = id.toList("|||");
+// for each  id in idList
+// {
+con_details = zoho.crm.getRecordById("Contacts",id);
+Lead_Source = con_details.get("Lead_Source");
+resp = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v7/Contacts/" + id + "/__timeline"
+	type :get
+	connection:"zohocrm"
+];
+timeline = resp.get("__timeline");
+for each  con_log in timeline
+{
+	if(con_log.get("source") == "convert")
+	{
+		automation_details = con_log.get("automation_details");
+		info automation_details;
+		conversion = automation_details.get("conversion");
+		lead_id = conversion.get("record").get("id");
+		info lead_id;
+		update_lead = zoho.crm.updateRecord("Leads",lead_id,{"Lead_Source":Lead_Source});
+		info update_lead;
+		break;
+	}
+}
+// }
+return "";
+}

@@ -1,0 +1,152 @@
+void schedule.remove_unrecorded_dispatch_records()
+{
+info "Time :- " + now.subDay(11);
+info "Dispatches :-";
+iterations = "".leftpad(20 - 1).toList("");
+pageCounter = 1;
+numRecords = 0;
+number_of_records = 0;
+for each  iteration in iterations
+{
+	page = pageCounter;
+	perPage = 200;
+	query = Map();
+	RecordsListBatch = zoho.crm.getRecords("Quotes",page,perPage,query);
+	if(RecordsListBatch.isEmpty())
+	{
+		break;
+	}
+	for each  record in RecordsListBatch
+	{
+		Locked__s = record.get("Locked__s");
+		Created_Time = record.get("Created_Time").getMonth();
+		current_month = today.getMonth();
+		last_month = current_month - Created_Time;
+		if(Locked__s == false && last_month == 1)
+		{
+			number_of_records = number_of_records + 1;
+			record_id = record.get("id");
+			deleteRecordMap = Map();
+			deleteRecordMap = {"module":"Quotes","id":record_id};
+			deleteResp = zoho.crm.invokeConnector("crm.delete",deleteRecordMap);
+		}
+	}
+	pageCounter = pageCounter + 1;
+	numRecords = numRecords + RecordsListBatch.size();
+}
+info "Number of records that has ref number empty : " + number_of_records;
+info "Pages Iterated: " + pageCounter;
+info "Total Records Fetched: " + numRecords;
+info "=====================================================";
+info "Transactions:- ";
+iterations = "".leftpad(20 - 1).toList("");
+pageCounter = 1;
+numRecords = 0;
+number_of_records = 0;
+for each  iteration in iterations
+{
+	page = pageCounter;
+	perPage = 200;
+	query = Map();
+	RecordsListBatch = zoho.crm.getRecords("Sales_Orders",page,perPage,query);
+	if(RecordsListBatch.isEmpty())
+	{
+		break;
+	}
+	for each  record in RecordsListBatch
+	{
+		Locked__s = record.get("Locked__s");
+		Created_Time = record.get("Created_Time").getMonth();
+		current_month = today.getMonth();
+		last_month = current_month - Created_Time;
+		if(Locked__s == false && last_month == 1)
+		{
+			number_of_records = number_of_records + 1;
+			record_id = record.get("id");
+			deleteRecordMap = Map();
+			deleteRecordMap = {"module":"Sales_Orders","id":record_id};
+			deleteResp = zoho.crm.invokeConnector("crm.delete",deleteRecordMap);
+		}
+	}
+	pageCounter = pageCounter + 1;
+	numRecords = numRecords + RecordsListBatch.size();
+}
+info "Number of records that has ref number empty : " + number_of_records;
+info "Pages Iterated: " + pageCounter;
+info "Total Records Fetched: " + numRecords;
+info "=====================================================";
+info "International_Transaction:- ";
+iterations = "".leftpad(20 - 1).toList("");
+pageCounter = 1;
+numRecords = 0;
+number_of_records = 0;
+for each  iteration in iterations
+{
+	page = pageCounter;
+	perPage = 200;
+	query = Map();
+	RecordsListBatch = zoho.crm.getRecords("International_Transaction",page,perPage,query);
+	if(RecordsListBatch.isEmpty())
+	{
+		break;
+	}
+	for each  record in RecordsListBatch
+	{
+		Locked__s = record.get("Locked__s");
+		Created_Time = record.get("Created_Time").getMonth();
+		current_month = today.getMonth();
+		last_month = current_month - Created_Time;
+		if(Locked__s == false && last_month == 1)
+		{
+			number_of_records = number_of_records + 1;
+			record_id = record.get("id");
+			deleteRecordMap = Map();
+			deleteRecordMap = {"module":"International_Transaction","id":record_id};
+			deleteResp = zoho.crm.invokeConnector("crm.delete",deleteRecordMap);
+		}
+	}
+	pageCounter = pageCounter + 1;
+	numRecords = numRecords + RecordsListBatch.size();
+}
+info "Number of records that has ref number empty : " + number_of_records;
+info "Pages Iterated: " + pageCounter;
+info "Total Records Fetched: " + numRecords;
+info "=====================================================";
+info "International_Disptaches:- ";
+iterations = "".leftpad(20 - 1).toList("");
+pageCounter = 1;
+numRecords = 0;
+number_of_records = 0;
+for each  iteration in iterations
+{
+	page = pageCounter;
+	perPage = 200;
+	query = Map();
+	RecordsListBatch = zoho.crm.getRecords("International_Disptaches",page,perPage,query);
+	if(RecordsListBatch.isEmpty())
+	{
+		break;
+	}
+	for each  record in RecordsListBatch
+	{
+		Locked__s = record.get("Locked__s");
+		Created_Time = record.get("Created_Time").getMonth();
+		current_month = today.getMonth();
+		last_month = current_month - Created_Time;
+		if(Locked__s == false && last_month == 1)
+		{
+			number_of_records = number_of_records + 1;
+			record_id = record.get("id");
+			deleteRecordMap = Map();
+			deleteRecordMap = {"module":"International_Disptaches","id":record_id};
+			deleteResp = zoho.crm.invokeConnector("crm.delete",deleteRecordMap);
+		}
+	}
+	pageCounter = pageCounter + 1;
+	numRecords = numRecords + RecordsListBatch.size();
+}
+info "Number of records that has ref number empty : " + number_of_records;
+info "Pages Iterated: " + pageCounter;
+info "Total Records Fetched: " + numRecords;
+info "=====================================================";
+}

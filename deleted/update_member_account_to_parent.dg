@@ -1,0 +1,18 @@
+void automation.update_member_account_to_parent(Int acc_id)
+{
+acc_details = zoho.crm.getRecordById("Accounts",acc_id);
+Parent_Account = acc_details.get("Parent_Account").get("id");
+member_acc = zoho.crm.getRelatedRecords("Child_Accounts","Accounts",acc_id);
+// 	info member_acc;
+for each  mem_acc in member_acc
+{
+	mem_id = mem_acc.get("id");
+	update_acc = zoho.crm.updateRecord("Accounts",mem_id,{"Parent_Account":Parent_Account});
+}
+deleteRecordMap = Map();
+deleteRecordMap.put("module","Accounts");
+deleteRecordMap.put("id",acc_id);
+deleteResp = zoho.crm.invokeConnector("crm.delete",deleteRecordMap);
+info deleteResp;
+openUrl("https://crmsandbox.zoho.com/crm/kgk_dev/tab/Accounts/" + Parent_Account,"new window");
+}

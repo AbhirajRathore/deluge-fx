@@ -1,0 +1,350 @@
+void schedule.Send_Live_bidding_bid_2_buy_Email()
+{
+try 
+{
+	//         info "Start: send_monthly_bid_recap_looping";
+	// ---------- CONFIG ----------
+	FROM_EMAIL = "crm.support@kgkmail.com";
+	FROM_NAME = "KGK CRM";
+	BATCH_LIMIT = 200;
+	// ---------- month start ----------
+	today = zoho.currentdate;
+	monthStartDate = today.toDate("yyyy-MM-dd").toStartOfMonth();
+	monthStartDT = monthStartDate.toString("yyyy-MM-dd") + "T00:00:00+05:30";
+	// -> "2025-09-01T00:00:00+05:30"
+	monthEndDate = monthStartDate.addMonth(1).addDay(-1);
+	monthEndDT = monthEndDate.toString("yyyy-MM-dd") + "T23:59:59+05:30";
+	// -> "2025-09-30T23:59:59+05:30"
+	info "MonthStartDT: " + monthStartDT + " | MonthEndDT: " + monthEndDT;
+	// ---------- fetch all bids for month once (COQL) using fixed iterations paging ----------
+	allBids = list();
+	numrecords = 0;
+	more_records = true;
+	// use same paging pattern as your other functions
+	iterations = "".leftpad(5 - 1).toList("");
+	for each  iteration in iterations
+	{
+		if(more_records)
+		{
+			queryMap = Map();
+			queryMap.put("select_query","select id, Contact.id, Contact.Email, Stone.id,Stone.Product_Name, bid_discount, bidding_time from Live_Bidding where bid_from = 'Bid to Buy' and bidding_time between '" + monthStartDT + "' and '" + monthEndDT + "' limit " + BATCH_LIMIT + " offset " + numrecords);
+			resp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v2/coql"
+				type :POST
+				parameters:queryMap.toString()
+				connection:"crm"
+			];
+			info resp;
+			info "COQL offset " + numrecords + " status: " + resp.get("info");
+			data = resp.get("data");
+			if(data != null && data.size() > 0)
+			{
+				for each  r in data
+				{
+					allBids.add(r);
+				}
+				// increment by fetched rows
+				numrecords = numrecords + data.size();
+			}
+			// update more_records
+			if(resp.get("info") != null && resp.get("info").get("more_records") != null)
+			{
+				more_records = resp.get("info").get("more_records");
+			}
+			else
+			{
+				more_records = false;
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+	// 		info allBids;
+	info "Total bids fetched this month: " + allBids.size();
+	if(allBids.size() == 0)
+	{
+		info "No Bid to Buy this month. Exiting.";
+		return;
+	}
+	// ---------- Build in-memory maps using existing looping approach ----------
+	stoneBestMap = Map();
+	contactBidsMap = Map();
+	contactEmailMap = Map();
+	repBidMap = Map();
+	for each  b in allBids
+	{
+		bidId = ifnull(b.get("id"),"");
+		contactObj = b.get("Contact.id");
+		if(contactObj != null)
+		{
+			cid = contactObj.toString();
+			cemail = ifnull(b.get("Contact.Email"),"");
+			if(cemail != "")
+			{
+				contactEmailMap.put(cid,cemail);
+			}
+			stoneObj = b.get("Stone.id");
+			sid = ifNull(stoneObj,"");
+			sname = ifNull(b.get("Stone.Product_Name"),"");
+			disc = ifNull(b.get("bid_discount"),0).toDecimal();
+			// update stoneBestMap
+			if(sid != "")
+			{
+				if(!stoneBestMap.containsKey(sid))
+				{
+					temp = Map();
+					temp.put(cid,disc);
+					stoneBestMap.put(sid,temp);
+				}
+				else
+				{
+					mapForStone = stoneBestMap.get(sid);
+					if(!mapForStone.containsKey(cid) || disc > mapForStone.get(cid))
+					{
+						mapForStone.put(cid,disc);
+						stoneBestMap.put(sid,mapForStone);
+					}
+				}
+			}
+			// update contactBidsMap
+			bidRecord = Map();
+			bidRecord.put("bid_id",bidId);
+			bidRecord.put("stone_id",sid);
+			bidRecord.put("stone_name",sname);
+			bidRecord.put("discount",disc);
+			if(!contactBidsMap.containsKey(cid))
+			{
+				lst = list();
+				lst.add(bidRecord);
+				contactBidsMap.put(cid,lst);
+			}
+			else
+			{
+				lst = contactBidsMap.get(cid);
+				lst.add(bidRecord);
+				contactBidsMap.put(cid,lst);
+			}
+			// rep bid id
+			if(!repBidMap.containsKey(cid) && bidId != "")
+			{
+				repBidMap.put(cid,bidId);
+			}
+		}
+		else
+		{
+			info "Skipping bid " + bidId + " because Contact.id is null";
+		}
+	}
+	info contactBidsMap;
+	// ---------- For each contact, compute ranks using in-memory maps and send email ----------
+	contactIds = contactBidsMap.keys();
+	info "Contacts to process: " + contactIds.size();
+	for each  cid in contactIds
+	{
+		try 
+		{
+			bidsForContact = contactBidsMap.get(cid);
+			participatedStones = list();
+			for each  br in bidsForContact
+			{
+				sid = br.get("stone_id");
+				if(sid != "" && !participatedStones.contains(sid))
+				{
+					participatedStones.add(sid);
+				}
+				bid_id = br.get("bid_id");
+			}
+			if(participatedStones.size() == 0)
+			{
+				info "No stones for contact " + cid + " - skipping";
+				continue;
+			}
+			htmlTable = "<div style='text-align:center;'>";
+			htmlTable = htmlTable + "<p><b>Your Bids Snapshot (This Month)</b></p>";
+			htmlTable = htmlTable + "<table style='border-collapse:collapse; margin:auto;'>";
+			htmlTable = htmlTable + "<tr>" + "<th style='border:1px solid #e5eea; padding:8px;'>Stone ID</th>" + "<th style='border:1px solid #e5eea; padding:8px;'>Your Rank</th>" + "<th style='border:1px solid #e5eea; padding:8px;'>Time Left</th>" + "</tr>";
+			stoneListForContact = list();
+			// <-- start: track if contact is rank 1 on ALL stones -->
+			allTop = true;
+			// <-- end -->
+			for each  sid in participatedStones
+			{
+				contactBestForStone = Map();
+				if(stoneBestMap.containsKey(sid))
+				{
+					contactBestForStone = stoneBestMap.get(sid);
+				}
+				else
+				{
+					continue;
+				}
+				unsortedList = list();
+				keys = contactBestForStone.keys();
+				for each  k in keys
+				{
+					tmp = Map();
+					tmp.put("contactId",k);
+					tmp.put("discount",contactBestForStone.get(k));
+					unsortedList.add(tmp);
+				}
+				finalList = list();
+				for each  item in unsortedList
+				{
+					inserted = false;
+					tempList = list();
+					for each  existing in finalList
+					{
+						if(inserted == false && item.get("discount") > existing.get("discount"))
+						{
+							tempList.add(item);
+							inserted = true;
+						}
+						tempList.add(existing);
+					}
+					if(inserted == false)
+					{
+						tempList.add(item);
+					}
+					finalList = tempList;
+				}
+				myRank = 0;
+				rankCounter = 1;
+				myBestBid = 0;
+				for each  row in finalList
+				{
+					if(row.get("contactId") == cid)
+					{
+						myRank = rankCounter;
+						myBestBid = row.get("discount");
+						break;
+					}
+					rankCounter = rankCounter + 1;
+				}
+				if(myRank == 0)
+				{
+					continue;
+				}
+				// If this stone rank is not 1, mark allTop = false
+				if(myRank != 1)
+				{
+					allTop = false;
+				}
+				weekDay = today.getDayOfWeek();
+				thursdayDate = today.addDay(5 - weekDay);
+				endDateTimeStr = thursdayDate.toString("yyyy-MM-dd") + " 14:30:00";
+				endDateTime = endDateTimeStr.toDateTime("yyyy-MM-dd HH:mm:ss");
+				if(today > endDateTime)
+				{
+					endDateTime = endDateTime.addDay(7);
+				}
+				timeLeftStr = hoursBetween(zoho.currenttime,endDateTime) + " hrs";
+				stoneName = sid;
+				for each  br in bidsForContact
+				{
+					if(br.get("stone_id") == sid && br.get("stone_name") != "")
+					{
+						stoneName = br.get("stone_name");
+						break;
+					}
+				}
+				htmlTable = htmlTable + "<tr>" + "<td style='border:1px solid #e5e5ea; padding:8px;'>" + stoneName + " (" + myBestBid + "%)</td>" + "<td style='border:1px solid #e5e5ea; padding:8px;'>#" + myRank + "</td>" + "<td style='border:1px solid #e5e5ea; padding:8px;'>" + timeLeftStr + "</td>" + "</tr>";
+				stoneListForContact.add(stoneName + " • (" + myBestBid + "%) • #" + myRank + " • " + timeLeftStr);
+			}
+			htmlTable = htmlTable + "</table></div>";
+			if(stoneListForContact.size() == 0)
+			{
+				info "No processed stones (ranks not found) for contact " + cid + " - skipping email.";
+				continue;
+			}
+			stoneListStr = "";
+			for each  sItem in stoneListForContact
+			{
+				if(stoneListStr != "")
+				{
+					stoneListStr = stoneListStr + "<br>";
+				}
+				stoneListStr = stoneListStr + sItem;
+			}
+			stoneDataFormat = "<p><b>Stone Data Format:</b> Stone Name • Your Best Bid % • #Your Rank • Time Left</p>";
+			combinedRichText = "<div style='text-align:center;'>" + stoneDataFormat + "<br>" + stoneListStr + "<br><br>" + "<p style='font-size:12px; color:#555;'>Note: Rank is based on your highest bid for each stone this month. Time Left shows remaining time until Thursday 2:30 PM.</p>" + "</div>";
+			repBidId = "";
+			if(repBidMap.containsKey(cid))
+			{
+				repBidId = repBidMap.get(cid);
+			}
+			if(repBidId != "" && repBidId != null)
+			{
+				updateMap = Map();
+				updateMap.put("List_of_Stones",combinedRichText);
+				updateResp = zoho.crm.updateRecord("Live_Bidding",repBidId.toLong(),updateMap);
+				info "Updated Live_Bidding " + repBidId + " resp: " + updateResp;
+			}
+			emailTo = "";
+			if(contactEmailMap.containsKey(cid))
+			{
+				emailTo = contactEmailMap.get(cid);
+			}
+			if(emailTo == null || emailTo == "")
+			{
+				cRec = zoho.crm.getRecordById("Contacts",cid.toLong());
+				emailTo = ifnull(cRec.get("Email"),"");
+			}
+			if(emailTo == null || emailTo == "")
+			{
+				info "No email for contact " + cid + " - skipping send";
+				continue;
+			}
+			// ---------- choose template based on allTop ----------
+			template_for_contact = "5870915000157800017";
+			// default Near Top
+			if(allTop == true)
+			{
+				// Contact is rank #1 on ALL stones they participated in this month
+				template_for_contact = "5870915000157808183";
+				// Top Rank template
+			}
+			sendfrom = Map();
+			sendfrom.put("email",FROM_EMAIL);
+			sendfrom.put("name",FROM_NAME);
+			sendto = Map();
+			sendto.put("email",emailTo);
+			tolist = List();
+			tolist.add(sendto);
+			tempmp = Map();
+			tempmp.put("id",template_for_contact);
+			Send_Email_mp = Map();
+			Send_Email_mp.put("from",sendfrom);
+			Send_Email_mp.put("to",tolist);
+			Send_Email_mp.put("template",tempmp);
+			Send_Email_mp.put("org_email",true);
+			Send_Email_dlist = List();
+			Send_Email_dlist.add(Send_Email_mp);
+			Send_Email_data = Map();
+			Send_Email_data.put("data",Send_Email_dlist);
+			send_resp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v2/Live_Bidding/" + repBidId + "/actions/send_mail"
+				type :POST
+				parameters:Send_Email_data.toString()
+				connection:"zohocrm"
+			];
+			info "Send email to " + emailTo + " resp: " + send_resp;
+		}
+		catch (innerEx)
+		{
+			info "Error processing contact " + cid + " : " + innerEx;
+			continue;
+		}
+	}
+	info "Completed send_monthly_bid_recap_looping";
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Schedule send_monthly_bid_recap_looping failed." + newline + e,"cliq");
+	info resp;
+}
+}

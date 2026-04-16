@@ -1,0 +1,384 @@
+void automation.Order_Confirmation_Email_to_client(Int deal_id)
+{
+try 
+{
+	deal_details = zoho.crm.getRecordById("Deals",deal_id,"crm");
+	info deal_details;
+	Tag = deal_details.get("Tag");
+	if(Tag.size() > 0)
+	{
+		for each  t in Tag
+		{
+			t_name = t.get("name");
+		}
+	}
+	Owner = deal_details.get("Owner").get("email");
+	// info deal_details;
+	Deal_Name = deal_details.get("Deal_Name");
+	if(deal_details.get("Lead_Source") == "KGK Website")
+	{
+		temp_id = "5870915000060296970";
+		resource_id = "us16ze2ae9a5ec5564ea1a2b2c711f6bc6ff3";
+	}
+	else if(deal_details.get("Lead_Source") == "KGK Website - New Arrivals" || deal_details.get("Lead_Source") == "KGK Website - Bid to Buy")
+	{
+		temp_id = "5870915000066888734";
+		resource_id = "4h09y4fa8db8c5e234e41bfb44b575b29215b";
+	}
+	else
+	{
+		// 			info "Valid Lead Source not found";
+		newline = hextoText("0A");
+		resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Email sending failed to Client." + newline + " Deal - https://crm.kgkgroup.com/crm/org821143611/tab/Potentials/" + deal_id + newline + "Lead Source Not Found.","cliq");
+		// 			info resp;
+		return;
+	}
+	if(t_name == "KGK-ONLINE-FAILED")
+	{
+		temp_id = "5870915000253109001";
+	}
+	Account_Name = deal_details.get("Account_Name");
+	if(Account_Name == null)
+	{
+		Account_Name = "";
+	}
+	else
+	{
+		Account_Name = deal_details.get("Account_Name").get("name");
+	}
+	Contact_Name = deal_details.get("Contact_Name").get("name");
+	Contact_id = deal_details.get("Contact_Name").get("id");
+	contact_details = zoho.crm.getRecordById("Contacts",Contact_id);
+	Email = contact_details.get("Email");
+	// create_workbook ============================================================
+	paramMap = Map();
+	paramMap.put('method','workbook.createfromtemplate');
+	paramMap.put('resource_id',resource_id);
+	paramMap.put('workbook_name',Contact_Name + " - " + Account_Name + " - " + today.tostring("MM-dd-yyyy"));
+	paramMap.put('parent_id','h1ru0197fabc9ddc3454e862386f01bd5730e');
+	create_workbook = invokeurl
+	[
+		url :"https://sheet.zoho.com/api/v2/createfromtemplate"
+		type :POST
+		parameters:paramMap
+		connection:"sheet_connection"
+	];
+	info create_workbook;
+	workbook_name = create_workbook.get("workbook_name");
+	resource_id = create_workbook.get("resource_id");
+	workbook_url = create_workbook.get("workbook_url");
+	// info "Email Attachment url - " + workbook_url;
+	info workbook_url;
+	// 	create_workbook END ========================================================================
+	// 	Row List ==================================================
+	dataList = List();
+	deal_Amount = 0.0;
+	quantity = 0;
+	total_carat = 0.0;
+	total_rapvalue = 0.0;
+	total_original_dis = list();
+	total_disc = list();
+	total_price = list();
+	total_rap = list();
+	total_amount = 0.0;
+	iterations = "".leftpad(20 - 1).toList("");
+	pageCounter = 1;
+	numRecords = 0;
+	n = 1;
+	for each  iteration in iterations
+	{
+		page = pageCounter;
+		perPage = 200;
+		deal_Stones = zoho.crm.getRelatedRecords("Inventory3","Deals",deal_id,page,perPage);
+		if(deal_Stones.size() == 0)
+		{
+			break;
+		}
+		else
+		{
+			for each  stones in deal_Stones
+			{
+				Product_name = stones.get("Stones").get("name");
+				Product_id = stones.get("Stones").get("id");
+				Total_Discount = ifNull(stones.get("Total_Discount"),0.0).toDecimal();
+				// 				info Total_Discount;
+				bid_discount = ifNull(stones.get("bid_discount"),0.0).toDecimal();
+				Markup = ifNull(stones.get("Markup"),0.0);
+				MSP = ifNull(stones.get("MSP"),0.0);
+				disc_percent = ifNull(stones.get("disc_percent"),0.0);
+				quantity = quantity + 1;
+				prod_details = zoho.crm.getRecordById("Products",Product_id);
+				carat = ifNull(prod_details.get("carat"),0.0);
+				total_carat = total_carat + carat;
+				color = ifNull(prod_details.get("color"),"");
+				if(color == "D" || color == "E" || color == "F" || color == "G" || color == "H" || color == "I" || color == "J" || color == "K" || color == "L" || color == "M" || color == "N")
+				{
+					Rap = ifNull(prod_details.get("list"),0.0).toDecimal();
+					RapValue = ifNull(prod_details.get("list_total"),0.0).toDecimal();
+				}
+				else
+				{
+					Rap = ifNull(prod_details.get("msp_total"),0.0) / prod_details.get("carat");
+					RapValue = ifNull(prod_details.get("msp_total"),0);
+				}
+				total_rap.add(Rap);
+				total_rapvalue = total_rapvalue + RapValue;
+				if(Total_Discount.signum() == -1.0)
+				{
+					price_carat = Rap - (Rap * Total_Discount.abs()) / 100;
+					bid_amount = RapValue - (RapValue * Total_Discount.abs()) / 100;
+					deal_Amount = deal_Amount + bid_amount;
+				}
+				else
+				{
+					price_carat = Rap + (Rap * Total_Discount.abs()) / 100;
+					bid_amount = RapValue + (RapValue * Total_Discount) / 100;
+					deal_Amount = deal_Amount + bid_amount;
+				}
+				dataMap1 = Map();
+				dataMap1.put('SrNo',n);
+				dataMap1.put('Stock No.',Product_name);
+				dataMap1.put('Location',ifNull(prod_details.get("location"),""));
+				if(prod_details.get("location") == "IND")
+				{
+					rap_percent = 2;
+				}
+				else
+				{
+					rap_percent = 4;
+				}
+				dataMap1.put('Lab',ifNull(prod_details.get("lab"),""));
+				dataMap1.put('Shape',ifNull(prod_details.get("shape"),""));
+				dataMap1.put('Carats',ifNull(prod_details.get("carat"),0.0));
+				dataMap1.put('Color',ifNull(prod_details.get("color"),""));
+				dataMap1.put('Clarity',ifNull(prod_details.get("clarity"),""));
+				if(deal_details.get("Lead_Source") == "KGK Website")
+				{
+					dataMap1.put('Rap ($)',Rap.round(2));
+					dataMap1.put('Rap Value',RapValue.round(2));
+					dataMap1.put('Discount',Total_Discount.round(2));
+					dataMap1.put('Price/Carat',price_carat.round(2));
+					dataMap1.put('Amount',bid_amount.round(2));
+					total_disc.add(Total_Discount.round(2));
+					total_price.add(price_carat.round(2));
+					total_amount = total_amount + bid_amount.round(2);
+				}
+				else if(deal_details.get("Lead_Source") == "KGK Website - New Arrivals" || deal_details.get("Lead_Source") == "KGK Website - Bid to Buy")
+				{
+					dataMap1.put('Rap ($)',Rap.round(2));
+					dataMap1.put('Rap Value',RapValue.round(2));
+					dataMap1.put('Original Discount %',MSP.round(2));
+					dataMap1.put('Bid Discount',"-" + bid_discount.round(2));
+					dataMap1.put('Bid Price/Carat',price_carat.round(2));
+					dataMap1.put('Bid Amount',bid_amount.round(2));
+					total_original_dis.add(MSP.round(2));
+					total_disc.add(Total_Discount.round(2));
+					total_price.add(price_carat.round(2));
+					total_amount = total_amount + bid_amount.round(2);
+				}
+				dataMap1.put('Cut',ifNull(prod_details.get("cut"),""));
+				dataMap1.put('Polish',ifNull(prod_details.get("polish"),""));
+				dataMap1.put('Symmetry',ifNull(prod_details.get("symmetry"),""));
+				dataMap1.put('Fluorescence',ifNull(prod_details.get("fluorescence"),""));
+				dataMap1.put('Table%',ifNull(prod_details.get("table"),0.0));
+				dataMap1.put('Depth%',ifNull(prod_details.get("depth_percentage"),0.0));
+				dataMap1.put('Certificate Number',ifNull(prod_details.get("certificate_no"),""));
+				dataMap1.put('Ratio',ifNull(prod_details.get("ratio"),""));
+				measurement = ifNull(prod_details.get("length"),0.0) + " - " + ifNull(prod_details.get("width"),0.0) + " - " + ifNull(prod_details.get("depth"),0.0);
+				dataMap1.put('Measurements(L*W*D)',measurement);
+				dataMap1.put('Milky',ifNull(prod_details.get("milky"),""));
+				dataMap1.put('Report Comments',ifNull(prod_details.get("lab_comments"),""));
+				dataMap1.put('Key to Symbols',ifNull(prod_details.get("key_to_symbols"),""));
+				dataMap1.put('Laser Inscription',ifNull(prod_details.get("inscription"),""));
+				dataMap1.put('Public URL',ifNull(prod_details.get("dna_link"),""));
+				dataList.add(dataMap1);
+				n = n + 1;
+			}
+		}
+		pageCounter = pageCounter + 1;
+		numRecords = numRecords + deal_Stones.size();
+	}
+	mp = Map();
+	mp.put("quantity",quantity);
+	mp.put("Amount",deal_Amount);
+	update_deal = zoho.crm.updateRecord("Deals",deal_id,mp);
+	total_rap = total_rap.average();
+	total_disc = total_disc.average();
+	total_price = total_price.average();
+	sheet_total = Map();
+	sheet_total.put("PCS",quantity);
+	sheet_total.put("carats",total_carat);
+	sheet_total.put("Rap.($)",total_rap);
+	sheet_total.put("Rap Value($)",total_rapvalue);
+	if(deal_details.get("Lead_Source") == "KGK Website - New Arrivals" || deal_details.get("Lead_Source") == "KGK Website - Bid to Buy")
+	{
+		total_original_dis = total_original_dis.average();
+		sheet_total.put("Original Disc %",total_original_dis);
+	}
+	sheet_total.put("Disc %",total_disc);
+	sheet_total.put("Price($)/ct",total_price);
+	sheet_total.put("Amount($)",total_amount);
+	sheet_total.put("row_index",2);
+	paramMap = Map();
+	paramMap.put('method','worksheet.jsondata.set');
+	paramMap.put('worksheet_name','Sheet1');
+	paramMap.put('header_row',1);
+	sheet_total_List = List();
+	sheet_total_List.add(sheet_total);
+	paramMap.put('json_data',sheet_total_List);
+	response = invokeurl
+	[
+		url :"https://sheet.zoho.com/api/v2/" + resource_id
+		type :POST
+		parameters:paramMap
+		connection:"sheet_connection"
+	];
+	info response;
+	// 	Row List ==================================================
+	paramMap = Map();
+	paramMap.put('method','worksheet.jsondata.append');
+	paramMap.put('worksheet_name','Sheet1');
+	paramMap.put('header_row',4);
+	paramMap.put('json_data',dataList);
+	add_rows = invokeurl
+	[
+		url :"https://sheet.zoho.com/api/v2/" + resource_id
+		type :POST
+		parameters:paramMap
+		connection:"sheet_connection"
+	];
+	// 			info "Workbook Status - " + add_rows;
+	// Add Rows to Sheet END =============================================================================
+	// Download workbook =============================================================================
+	paramMap = Map();
+	paramMap.put('method','workbook.download');
+	paramMap.put('format','xlsx');
+	paramMap.put('worksheet_name','sheet1');
+	dataMap = Map();
+	dataMap.put('print_type',"SHEET");
+	dataMap.put('margin_left',0.5);
+	dataMap.put('margin_right',0.5);
+	dataMap.put('page_order',"overDown");
+	dataMap.put('add_chart',true);
+	paramMap.put('page_settings',dataMap);
+	file_response = invokeurl
+	[
+		url :"https://sheet.zoho.com/api/v2/download/" + resource_id
+		type :POST
+		parameters:paramMap
+		connection:"sheet_connection"
+	];
+	info file_response;
+	// 	============================================
+	file_response.setParamName("file");
+	response = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v5/files"
+		type :POST
+		files:file_response
+		connection:"crm"
+	];
+	// info response;
+	fid = response.get("data").get(0).get("details").get("id");
+	// info "FID - " + fid;
+	attachmap = Map();
+	attachmap.put("id",fid);
+	alist = List();
+	alist.add(attachmap);
+	// 	Send Email ================================
+	sendfrom = Map();
+	sendfrom.put("email","crm.support@kgkmail.com");
+	sendto = Map();
+	sendto.put("email",Email);
+	//nitesh.parihar@kgkmail.com
+	tolist = List();
+	tolist.add(sendto);
+	tempmp = Map();
+	tempmp.put("id",temp_id);
+	Send_Email_mp = Map();
+	Send_Email_mp.put("from",sendfrom);
+	Send_Email_mp.put("to",tolist);
+	Send_Email_mp.put("template",tempmp);
+	Send_Email_mp.put("attachments",alist);
+	Send_Email_mp.put("org_email",true);
+	Send_Email_dlist = List();
+	Send_Email_dlist.add(Send_Email_mp);
+	Send_Email_data = Map();
+	Send_Email_data.put("data",Send_Email_dlist);
+	// info "Send_Email_data - " + Send_Email_data;
+	Client_Send_Email = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v2.1/Deals/" + deal_id + "/actions/send_mail"
+		type :POST
+		parameters:Send_Email_data + ""
+		connection:"zohocrm"
+	];
+	info "Send_Email - " + Client_Send_Email;
+	// 		==========================================================
+	// 		Send Email to Owner
+	// 		============================================================
+	Owner_Send_Email = "";
+	if(t_name != "KGK-ONLINE-FAILED")
+	{
+		file_response = invokeurl
+		[
+			url :"https://sheet.zoho.com/api/v2/download/" + resource_id
+			type :POST
+			parameters:paramMap
+			connection:"sheet_connection"
+		];
+		// info file_response;
+		// 	============================================
+		file_response.setParamName("file");
+		response = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v5/files"
+			type :POST
+			files:file_response
+			connection:"crm"
+		];
+		// info response;
+		fid = response.get("data").get(0).get("details").get("id");
+		attachmap = Map();
+		attachmap.put("id",fid);
+		alist = List();
+		alist.add(attachmap);
+		// 	Send Email ================================
+		sendfrom = Map();
+		sendfrom.put("email","crm.support@kgkmail.com");
+		sendto = Map();
+		sendto.put("email",Owner);
+		tolist = List();
+		tolist.add(sendto);
+		tempmp = Map();
+		tempmp.put("id","5870915000033197524");
+		Send_Email_mp = Map();
+		Send_Email_mp.put("from",sendfrom);
+		Send_Email_mp.put("to",tolist);
+		Send_Email_mp.put("template",tempmp);
+		Send_Email_mp.put("attachments",alist);
+		Send_Email_mp.put("org_email",true);
+		Send_Email_dlist = List();
+		Send_Email_dlist.add(Send_Email_mp);
+		Send_Email_data = Map();
+		Send_Email_data.put("data",Send_Email_dlist);
+		// info "Send_Email_data - " + Send_Email_data;
+		Owner_Send_Email = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v2.1/Deals/" + deal_id + "/actions/send_mail"
+			type :POST
+			parameters:Send_Email_data + ""
+			connection:"zohocrm"
+		];
+		info "Send_Email - " + Owner_Send_Email;
+	}
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Email Sent to Owner and Client" + newline + " Deal - https://crm.kgkgroup.com/crm/org821143611/tab/Potentials/" + deal_id + newline + "Onwer - " + Owner_Send_Email + "Client - " + Client_Send_Email,"cliq");
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Email sending failed to Owner and Client" + newline + " Contact - https://crm.kgkgroup.com/crm/org821143611/tab/Potentials/" + deal_id + newline + "" + e + newline + newline + "Onwer - " + Owner_Send_Email + "Client - " + Client_Send_Email,"cliq");
+	info resp;
+}
+}

@@ -1,0 +1,119 @@
+void automation.restore_record_and_subform_data_transaction(Int id)
+{
+old_dispatch = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v6/Sales_Orders/" + id
+	type :GET
+	connection:"crm"
+];
+data = old_dispatch.get("data");
+// info data;
+create_new_rec = Map();
+Quoted_Items = list();
+for each  rec in data
+{
+	if(rec.get("Account_Name") != null)
+	{
+		create_new_rec.put("Account_Name",ifNull(rec.get("Account_Name").get("id"),""));
+	}
+	if(rec.get("Contact_Name") != null)
+	{
+		create_new_rec.put("Contact_Name",ifNull(rec.get("Contact_Name").get("id"),""));
+	}
+	if(rec.get("Deal_Name") != null)
+	{
+		create_new_rec.put("Deal_Name",ifNull(rec.get("Deal_Name").get("id"),""));
+	}
+	if(rec.get("Broker_Involved") == true)
+	{
+		create_new_rec.put("Broker_Involved",true);
+		create_new_rec.put("Broker_Name",ifNull(rec.get("Broker_Name").get("id"),""));
+		create_new_rec.put("Brokerage",ifNull(rec.get("Brokerage"),""));
+	}
+	create_new_rec.put("Location","India");
+	create_new_rec.put("Invoice_No",ifNull(rec.get("Invoice_No"),""));
+	create_new_rec.put("Zoho_Sheet_Link",ifNull(rec.get("Zoho_Sheet_Link"),""));
+	create_new_rec.put("Bank_Rate",ifNull(rec.get("Bank_Rate"),0.0));
+	create_new_rec.put("Terms",ifNull(rec.get("Terms"),""));
+	create_new_rec.put("Term_Date",ifNull(rec.get("Term_Date"),""));
+	create_new_rec.put("Owner",ifNull(rec.get("Owner").get("id"),""));
+	create_new_rec.put("Ref_No",ifNull(rec.get("Ref_No"),""));
+	create_new_rec.put("Ref_Date",ifNull(rec.get("Ref_Date"),""));
+	create_new_rec.put("Currency_Type",ifNull(rec.get("Currency_Type"),""));
+	create_new_rec.put("Sale_Type",ifNull(rec.get("Local_Sale_Type"),""));
+	create_new_rec.put("Markup",ifNull(rec.get("Markup"),""));
+	create_new_rec.put("Sales_Status",ifNull(rec.get("Sales_Status"),""));
+	create_new_rec.put("Payment_Details",ifNull(rec.get("Payment_Details"),""));
+	create_new_rec.put("Common_Discount",ifNull(rec.get("Common_Discount"),""));
+	create_new_rec.put("Shipping_City",ifNull(rec.get("Shipping_City"),""));
+	create_new_rec.put("Shipping_Code",ifNull(rec.get("Shipping_Code"),""));
+	create_new_rec.put("Shipping_Country",ifNull(rec.get("Shipping_Country"),""));
+	create_new_rec.put("Shipping_State",ifNull(rec.get("Shipping_State"),""));
+	create_new_rec.put("Shipping_Street",ifNull(rec.get("Shipping_Street"),""));
+	create_new_rec.put("Billing_City",ifNull(rec.get("Shipping_City"),""));
+	create_new_rec.put("Billing_Code",ifNull(rec.get("Shipping_Code"),""));
+	create_new_rec.put("Billing_Country",ifNull(rec.get("Shipping_Country"),""));
+	create_new_rec.put("Billing_State",ifNull(rec.get("Shipping_State"),""));
+	create_new_rec.put("Billing_Street",ifNull(rec.get("Shipping_Street"),""));
+	create_new_rec.put("Description",ifNull(rec.get("Terms_and_Conditions"),""));
+	create_new_rec.put("Total_Stones",rec.get("Ordered_Items").size());
+	create_new_rec.put("Total_Weight",rec.get("Total_Weight"));
+	create_new_rec.put("Old_Transaction_created_time",rec.get("Created_Time"));
+	create_new_rec.put("Net_Amount_USD",rec.get("Net_Amount_USD"));
+	subform = rec.get("Ordered_Items");
+	create_new_rec.put("Layout",5870915000022886358);
+}
+create_new = zoho.crm.createRecord("International_Transaction",create_new_rec);
+new_rec_id = create_new.get("id");
+info "Transaction ID - " + new_rec_id;
+if(new_rec_id != null)
+{
+	for each  item in subform
+	{
+		Product_id = item.get("Product_Name").get("id");
+		Carat = item.get("Carat");
+		list1 = item.get("List");
+		msp_per = abs(ifNull(item.get("MSP1"),0.0));
+		MSP = -1 * msp_per;
+		msp_total = ifNull(item.get("MSP_Total"),0.0);
+		list_total = ifNull(item.get("List_Total"),0.0);
+		Color = ifNull(item.get("Color"),"");
+		Amount_Per_Carat_USD = ifNull(item.get("Amount_Per_Carat_USD"),0.0);
+		Amount_USD = ifNull(item.get("Amount_USD"),0.0);
+		Tran_Status = ifNull(item.get("Tran_Status"),"");
+		Shape = ifNull(item.get("Shape"),"");
+		Clarity = ifNull(item.get("Clarity"),"");
+		LAB = ifNull(item.get("Lab"),"");
+		recordMap1 = {"Stone":Product_id,"Transaction":new_rec_id,"Carat":Carat,"list":list1,"MSP":MSP,"MSP_Total":msp_total,"List_Total":list_total,"Rate_USD":Amount_Per_Carat_USD,"Amount_USD":Amount_USD,"Tran_Status":Tran_Status,"Shape":Shape,"Clarity":Clarity,"Color":Color,"LAB":LAB};
+		Quoted_Items.add(recordMap1);
+	}
+	info "Main Size - " + Quoted_Items;
+	if(Quoted_Items.size() <= 100 && Quoted_Items.size() > 0)
+	{
+		info "Create List is " + Quoted_Items.size();
+		bulk_create = zoho.crm.bulkCreate("Transaction_X_Inventory",Quoted_Items);
+		for each  bulk in bulk_create
+		{
+			info "Created  " + Quoted_Items.size() + " - " + bulk.get("code");
+			break;
+		}
+	}
+	else if(Quoted_Items.size() > 100)
+	{
+		newListVar = Quoted_Items.subList(0,100);
+		bulk_create = zoho.crm.bulkCreate("Transaction_X_Inventory",newListVar);
+		for each  bulk in bulk_create
+		{
+			info "Created  " + newListVar.size() + " - " + bulk.get("code");
+			break;
+		}
+		Quoted_Items.removeAll(newListVar);
+		bulk_create = zoho.crm.bulkCreate("Transaction_X_Inventory",Quoted_Items);
+		for each  bulk in bulk_create
+		{
+			info "Created  " + Quoted_Items.size() + " - " + bulk.get("code");
+			break;
+		}
+	}
+}
+}

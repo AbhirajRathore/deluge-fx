@@ -1,0 +1,283 @@
+void automation.Auto_Merge_for_Website_Orders(Int deal_id)
+{
+try 
+{
+	Order_ids = List();
+	to_be_updated_stones_list = list();
+	to_be_updated_tran_list = list();
+	to_be_updated_dispacth_list = list();
+	old_common_deal = list();
+	notes_list = list();
+	deal_details = zoho.crm.getRecordById("Deals",deal_id);
+	Deal_Name = deal_details.get("Deal_Name");
+	if(deal_details.get("Contact_Name") == null)
+	{
+		info "Contact is empty for this Deal ( " + Deal_Name + " )";
+		return;
+	}
+	Stone_Location = deal_details.get("Stone_Location");
+	if(Stone_Location == null)
+	{
+		RecordsListBatch = zoho.crm.getRelatedRecords("Inventory3","Deals",deal_id);
+		for each  item in RecordsListBatch
+		{
+			Stone_Location = item.get("Location");
+			break;
+		}
+		update = zoho.crm.updateRecord("Deals",deal_id,{"Stone_Location":Stone_Location});
+	}
+	Contact_Name = deal_details.get("Contact_Name").get("id");
+	Contact_Full_Name = deal_details.get("Contact_Name").get("name");
+	Account_Name = deal_details.get("Account_Name").get("id");
+	order_id = ifNull(deal_details.get("order_id"),deal_details.get("id"));
+	Created_Time = deal_details.get("Created_Time");
+	Order_ids.add(order_id);
+	Lead_Source = deal_details.get("Lead_Source");
+	Owner = deal_details.get("Owner").get("id");
+	day = Created_Time.getDay();
+	Start = Created_Time.toStartOfMonth().toString("yyyy-MM-dd");
+	info Start;
+	offset = 0;
+	limit = 2000;
+	queryMap = Map();
+	queryMap.put("select_query","SELECT id, order_id, Description, Account_Name.id, Contact_Name.id, Lead_Source, Owner.id, Created_Time FROM Deals WHERE (((Account_Name = '" + Account_Name + "') AND (Contact_Name = '" + Contact_Name + "')) AND ((Owner = '" + Owner + "') AND (Lead_Source = '" + Lead_Source + "'))) AND ((Created_Time between '" + Start + "T00:00:00+08:00' and '" + Created_Time + "') and (Stage not like '%Closed%')) ORDER BY Created_Time DESC LIMIT " + limit + " OFFSET " + offset);
+	response = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v7/coql"
+		type :POST
+		parameters:queryMap.toString()
+		connection:"crm"
+	];
+	info response;
+	data = response.get("data");
+	for each  deal in data
+	{
+		if(deal.get("id") != deal_id)
+		{
+			order_id = deal.get("order_id");
+			if(order_id == null)
+			{
+				order_id = deal.get("id");
+			}
+			Order_ids.add(order_id);
+			old_deal_id = deal.get("id");
+			Description = deal.get("Description");
+			notes_list.add(Description);
+			// 		Search Stones ............................
+			iterations = "".leftpad(20 - 1).toList("");
+			pageCounter = 1;
+			for each  iteration in iterations
+			{
+				page = pageCounter;
+				perPage = 200;
+				Inventory_RecordsListBatch = zoho.crm.getRelatedRecords("Inventory3","Deals",old_deal_id,page,perPage);
+				if(Inventory_RecordsListBatch.isEmpty())
+				{
+					break;
+				}
+				else
+				{
+					for each  X_inventory in Inventory_RecordsListBatch
+					{
+						X_inventory_stone_id = X_inventory.get("Stones").get("id");
+						X_inventory_location = X_inventory.get("Location");
+						if(X_inventory_location == Stone_Location)
+						{
+							old_common_deal.add(old_deal_id);
+							record_map = {"id":X_inventory.get("id"),"deal_stones":deal_id};
+							to_be_updated_stones_list.add(record_map);
+						}
+						else
+						{
+							break;
+						}
+					}
+				}
+				pageCounter = pageCounter + 1;
+			}
+		}
+	}
+	// Search Transaction ..............................
+	if(old_common_deal.size() > 0)
+	{
+		for each  old_deal_id in old_common_deal
+		{
+			tran_RecordsListBatch = zoho.crm.getRelatedRecords("International_Transactions","Deals",old_deal_id);
+			if(tran_RecordsListBatch.isEmpty())
+			{
+				break;
+			}
+			else
+			{
+				for each  transaction in tran_RecordsListBatch
+				{
+					record_map = {"id":transaction.get("id"),"Deal_Name":deal_id};
+					to_be_updated_tran_list.add(record_map);
+				}
+			}
+		}
+	}
+	// Search Dispatch....................
+	if(old_common_deal.size() > 0)
+	{
+		for each  old_deal_id in old_common_deal
+		{
+			dispatch_RecordsListBatch = zoho.crm.getRelatedRecords("International_Dispatches","Deals",old_deal_id);
+			if(tran_RecordsListBatch.isEmpty())
+			{
+				break;
+			}
+			else
+			{
+				for each  dispatch in dispatch_RecordsListBatch
+				{
+					record_map = {"id":dispatch.get("id"),"Deal_Name":deal_id};
+					to_be_updated_dispacth_list.add(record_map);
+				}
+			}
+		}
+	}
+	info "Order IDs - " + Order_ids.size();
+	info "Common Deal - " + old_common_deal.size();
+	info "Stones - " + to_be_updated_stones_list.size();
+	info "Transactions - " + to_be_updated_tran_list.size();
+	info "Dispatch - " + to_be_updated_dispacth_list.size();
+	// Update Stone..............
+	if(to_be_updated_stones_list.size() > 0)
+	{
+		iterations = "".leftpad(20 - 1).toList("");
+		for each  iteration in iterations
+		{
+			if(to_be_updated_stones_list.size() == 0)
+			{
+				break;
+			}
+			else if(to_be_updated_stones_list.size() <= 100 && to_be_updated_stones_list.size() > 0)
+			{
+				bulk_update = zoho.crm.bulkUpdate("Deals_X_Inventory",to_be_updated_stones_list);
+				// 				info bulk_update;
+				break;
+			}
+			else
+			{
+				newListVar = to_be_updated_stones_list.subList(0,100);
+				bulk_update = zoho.crm.bulkUpdate("Deals_X_Inventory",newListVar);
+				to_be_updated_stones_list.removeAll(newListVar);
+			}
+		}
+	}
+	// Update Transaction..................
+	if(to_be_updated_tran_list.size() > 0)
+	{
+		iterations = "".leftpad(20 - 1).toList("");
+		for each  iteration in iterations
+		{
+			if(to_be_updated_tran_list.size() == 0)
+			{
+				break;
+			}
+			else if(to_be_updated_tran_list.size() <= 100 && to_be_updated_tran_list.size() > 0)
+			{
+				bulk_update = zoho.crm.bulkUpdate("International_Transaction",to_be_updated_tran_list);
+				// 				info bulk_update;
+				break;
+			}
+			else
+			{
+				newListVar = to_be_updated_tran_list.subList(0,100);
+				bulk_update = zoho.crm.bulkUpdate("International_Transaction",newListVar);
+				to_be_updated_tran_list.removeAll(newListVar);
+			}
+		}
+	}
+	// Update Dispatch..................
+	if(to_be_updated_dispacth_list.size() > 0)
+	{
+		iterations = "".leftpad(20 - 1).toList("");
+		for each  iteration in iterations
+		{
+			if(to_be_updated_dispacth_list.size() == 0)
+			{
+				break;
+			}
+			else if(to_be_updated_dispacth_list.size() <= 100 && to_be_updated_dispacth_list.size() > 0)
+			{
+				bulk_update = zoho.crm.bulkUpdate("International_Disptaches",to_be_updated_dispacth_list);
+				// 				info bulk_update;
+				break;
+			}
+			else
+			{
+				newListVar = to_be_updated_dispacth_list.subList(0,100);
+				bulk_update = zoho.crm.bulkUpdate("International_Disptaches",newListVar);
+				to_be_updated_dispacth_list.removeAll(newListVar);
+			}
+		}
+	}
+	if(notes_list.size() > 0)
+	{
+		for each  notes in notes_list
+		{
+			notemap = Map();
+			notemap.put("Parent_Id",input.deal_id);
+			notemap.put("Note_Content",notes);
+			notemap.put("se_module","Deals");
+			notecreate = zoho.crm.createRecord("Notes",notemap);
+			// 			info notemap;
+		}
+	}
+	// update Deals.................
+	Merged_Order_ID_s = deal_details.get("Merged_Order_ID_s");
+	if(Merged_Order_ID_s != null)
+	{
+		Merged_Order_ID_s = deal_details.get("Merged_Order_ID_s");
+		Order_ids.addAll(Merged_Order_ID_s);
+	}
+	unique = Order_ids.distinct();
+	info "Merge Order IDs - " + unique;
+	Update_First_Deal = Map();
+	Update_First_Deal.put("Merged_Order_ID_s",unique.toString());
+	Create_deal_resp = zoho.crm.updateRecord("Deals",deal_id,Update_First_Deal);
+	// 	info Create_deal_resp;
+	// Common Deals..............
+	if(old_common_deal.size() > 0)
+	{
+		param = Map();
+		param.put("ids",old_common_deal);
+		// info param;
+		delete_resp = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v6/Deals/actions/mass_delete"
+			type :post
+			parameters:param.toString()
+			connection:"currency_connection"
+		];
+		info "Delete resp - " + delete_resp;
+	}
+	pageCounter = 1;
+	iterations = "".leftpad(20 - 1).toList("");
+	for each  iteration in iterations
+	{
+		page = pageCounter;
+		perPage = 200;
+		first_deal_stone = zoho.crm.getRelatedRecords("Inventory3","Deals",deal_id,page,perPage);
+		if(first_deal_stone.isEmpty())
+		{
+			break;
+		}
+		for each  X_inventory in first_deal_stone
+		{
+			Stone_id = X_inventory.get("Stones").get("id");
+			update = zoho.crm.updateRecord("Products",Stone_id,{"deal_id":deal_id.toString()});
+			info update;
+		}
+		pageCounter = pageCounter + 1;
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Auto_Merge_for_Website_Orders function failed." + newline + " Deal - https://crm.zoho.com/crm/org821143611/tab/Potentials/" + deal_id + " " + newline + "" + e,"cliq");
+	info resp;
+}
+}

@@ -1,0 +1,55 @@
+string standalone.tag_retention_weborder(String location,String barcode,Int deal_id)
+{
+deal_details = zoho.crm.getRecordById("Deals",deal_id);
+// Acc_name = deal_details.get("Deal_Name");
+// if(deal_details.get("Account_Name") != null)
+// {
+// 	party_name = deal_details.get("Account_Name").get("name");
+// }
+party_name = deal_details.get("Owner").get("name");
+info party_name;
+info location;
+info barcode;
+loc_map_str = standalone.get_variable_value("config_locations","","");
+loc_list = loc_map_str.toList();
+token = "";
+for each  loc in loc_list
+{
+	if(loc.get("location_code") == location)
+	{
+		token = loc.get("token");
+		break;
+	}
+}
+// info token;
+base_api = standalone.get_variable_value("config_api",loc.get("location_code"),"url");
+auth_hdr = {"Content-Type":"application/json","Authorization":"Bearer " + token};
+url = base_api + "/CRM/web-order?dept_code=474&employee_code=40290&party_name=" + encodeUrl(party_name);
+resp = list();
+mp = Map();
+mp.put("barcode",barcode);
+mp.put("carat",0);
+mp.put("crm_price",0);
+mp.put("out_percent",0);
+resp.add(mp);
+info resp.toString();
+resp = invokeurl
+[
+	url :url
+	type :POST
+	parameters:"[" + resp.toString() + "]"
+	headers:auth_hdr
+];
+info resp;
+if(!resp.get("Success"))
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Stone was not transfer to WEB ORDER." + newline + "LOT ID: " + barcode + newline + "Location: " + location,"cliq");
+}
+else
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Web Order Created for LOT ID: " + barcode + newline + "Location: " + location,"cliq");
+}
+return "";
+}

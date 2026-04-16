@@ -1,0 +1,82 @@
+void schedule.Cart_Followup_Scheduler()
+{
+try 
+{
+	info "---- Cart Abandonment Scheduler Started ----";
+	// Fetch all ACTIVE carts
+	temp_id = "";
+	nextToken = 0;
+	pageSize = 200;
+	iterations = "".leftpad(50).toList("");
+	for each  i in iterations
+	{
+		queryMap = Map();
+		crm_query = "select id, Contact.id, Contact.Email,  Contact.Followup_Stage, Added_Time from Carts where Contact.Email is not null and Added_Time is not null  limit " + pageSize + " offset " + nextToken;
+		queryMap.put("select_query",crm_query);
+		cartList = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v3/coql"
+			type :POST
+			parameters:queryMap.toString()
+			connection:"crm"
+		];
+		// 					info cartList;
+		if(cartList == null || cartList.get("data") == null || cartList.get("data").isEmpty())
+		{
+			break;
+		}
+		for each  cart in cartList.get("data")
+		{
+			cartId = cart.get("id");
+			info "Processing Cart ID : " + cartId;
+			lastStage = ifnull(cart.get("Contact.Followup_Stage"),"");
+			contact_id = ifnull(cart.get("Contact.id"),"");
+			Email = ifnull(cart.get("Contact.Email"),"");
+			// ---------- BASIC VALIDATIONS ----------
+			startTime = cart.get("Added_Time");
+			daysDiff = startTime.daysBetween(now);
+			info daysDiff;
+			// ---------- DETERMINE CURRENT STAGE ----------
+			currentStage = "";
+			if(daysDiff >= 15)
+			{
+				currentStage = "Day 15";
+				temp_id = "5870915000240098145";
+			}
+			else if(daysDiff >= 7)
+			{
+				currentStage = "Day 7";
+				temp_id = "5870915000240098077";
+			}
+			else if(daysDiff == 3)
+			{
+				currentStage = "Day 3";
+				temp_id = "5870915000240098084";
+			}
+			if(currentStage == "" || currentStage == lastStage)
+			{
+				info "No followup needed";
+				continue;
+			}
+			info currentStage;
+			// ---------- EMAIL + EXCEL (CRM SIDE) ----------
+			standalone.cart_generateExcelAndSendEmail(cartId,Email,temp_id,currentStage,contact_id);
+			// 			update_contact = zoho.crm.updateRecord("Contacts", contact_id, {"Followup_Stage":currentStage},{"trigger":{"workflow"}});
+		}
+		if(cartList.containsKey("info") && cartList.get("info").get("more_records") == true)
+		{
+			nextToken = nextToken + pageSize;
+		}
+		else
+		{
+			break;
+		}
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Error In Cart Abandonment" + " " + newline + "" + e,"cliq");
+	info resp;
+}
+}

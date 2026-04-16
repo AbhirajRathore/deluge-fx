@@ -1,0 +1,59 @@
+void automation.Update_Markup_to_Deal_X_invemtory(Int deal_id)
+{
+iterations = "".leftpad(20 - 1).toList("");
+pageCounter = 1;
+numRecords = 0;
+deal_details = zoho.crm.getRecordById("Deals",deal_id);
+Account_Name = deal_details.get("Contact_Name").get("id");
+Account_details = zoho.crm.getRecordById("Contacts",Account_Name);
+Markup = ifNull(Account_details.get("Markup"),0.0);
+updateList = List();
+for each  iteration in iterations
+{
+	page = pageCounter;
+	perPage = 200;
+	RecordsListBatch = zoho.crm.getRelatedRecords("Inventory3","Deals",deal_id,page,perPage);
+	if(RecordsListBatch.isEmpty())
+	{
+		break;
+	}
+	else
+	{
+		for each  record in RecordsListBatch
+		{
+			if(record.get("bid_discount") == null || record.get("bid_discount") == "0")
+			{
+				recordMap1 = {"id":record.get("id"),"Markup":Markup};
+				updateList.add(recordMap1);
+			}
+		}
+		info "Main Size - " + updateList.size();
+		if(updateList.size() > 0)
+		{
+			// 		for less than 100 records ...................
+			if(updateList.size() <= 100)
+			{
+				bulk_update = zoho.crm.bulkUpdate("Deals_X_Inventory",updateList);
+				for each  bulk in bulk_update
+				{
+					info bulk.get("code");
+					break;
+				}
+			}
+			else
+			{
+				newListVar = updateList.subList(0,100);
+				info "New List - " + newListVar.size();
+				bulk_update = zoho.crm.bulkUpdate("Deals_X_Inventory",newListVar);
+				updateList.removeAll(newListVar);
+				bulk_update = zoho.crm.bulkUpdate("Deals_X_Inventory",updateList);
+				info "Main List - " + updateList.size();
+			}
+		}
+	}
+	pageCounter = pageCounter + 1;
+	numRecords = numRecords + RecordsListBatch.size();
+}
+info "Pages Iterated: " + pageCounter;
+info "Total Stone Fetched: " + numRecords;
+}

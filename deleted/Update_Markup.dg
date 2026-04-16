@@ -1,0 +1,18 @@
+void automation.Update_Markup(Int id)
+{
+a = zoho.crm.getRecordById("Accounts",id);
+// info a;
+Markup = a.getJson("Markup");
+info Markup;
+ab = zoho.crm.getRelatedRecords("Contacts","Accounts",id);
+// info ab;
+mp = Map();
+for each  rec in ab
+{
+	cont_id = rec.getJSON("id");
+	info cont_id;
+	mp.put("Markup",Markup);
+	upd = zoho.crm.updateRecord("Contacts",cont_id,mp);
+	info upd;
+}
+}

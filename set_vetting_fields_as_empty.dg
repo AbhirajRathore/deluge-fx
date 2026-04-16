@@ -1,0 +1,9 @@
+void automation.set_vetting_fields_as_empty(Int id)
+{
+mp = Map();
+mp.put("Follow_up_on","");
+mp.put("Follow_Up_Notes","");
+mp.put("Reason_for_Vetting_rejection","");
+mp.put("Number_of_Re_assign","");
+update = zoho.crm.updateRecord("Leads",id,mp);
+}

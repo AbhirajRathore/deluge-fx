@@ -1,0 +1,171 @@
+string standalone.Reverse_Sync_Audit()
+{
+try 
+{
+	newline = hextoText("0A");
+	not_matched = list();
+	current_date = now.toString("dd-MMM-yyyy","IST").toDate();
+	nivid_fromDate = "01/JAN/2026";
+	nivid_toDate = current_date.subDay(1).toString("dd/MMM/yyyy");
+	loc_map_str = standalone.get_variable_value("config_locations","","");
+	loc_list = loc_map_str.toList();
+	for each  loc in loc_list
+	{
+		try 
+		{
+			stone_loc = loc.get("location_code");
+			loc_name = loc.get("location_name");
+			info "Now Processing: " + loc_name;
+			// 				if ( loc_name != "India" ) 
+			//                 {
+			// 					continue;
+			//                 }
+			nivid_token = loc.get("token");
+			base_api = standalone.get_variable_value("config_api",stone_loc,"url");
+			// ================= NIVID API =================
+			header = Map();
+			header.put("Authorization","Bearer " + nivid_token);
+			header.put("Content-Type","application/json");
+			view_name = "V_CRM_REVERSE_SYNC_AUDIT";
+			criteria = "TO_DATE(MASTER_SALE_DATE) BETWEEN TO_DATE('" + nivid_fromDate + "') AND TO_DATE('" + nivid_toDate + "') ORDER BY MASTER_SALE_DATE";
+			url = base_api + "/CRM/dynamic-query-data?Name=" + view_name + "&Criteria=" + encodeUrl(criteria);
+			sale_resp = invokeurl
+			[
+				url :url
+				type :GET
+				headers:header
+			];
+			if(sale_resp == null || sale_resp.get("Data") == null)
+			{
+				continue;
+			}
+			// ================= STORE NIVID TOTALS PER DATE =================
+			nivid_summary_map = Map();
+			for each  resp in sale_resp.get("Data")
+			{
+				if(resp.get("MASTER_SALE_DATE") == null)
+				{
+					continue;
+				}
+				Ref_Date = resp.get("MASTER_SALE_DATE").toString("dd/MMM/yy").upper();
+				date_map = Map();
+				date_map.put("TOTAL_CARAT",resp.get("TOTAL_CARAT").toDecimal());
+				date_map.put("TOTAL_INVOICES",resp.get("TOTAL_INVOICES").toLong());
+				date_map.put("CRM_Ref_Date",Ref_Date);
+				date_map.put("TOTAL_AMOUNT",resp.get("TOTAL_AMOUNT").toDecimal());
+				nivid_summary_map.put(Ref_Date,date_map);
+			}
+			// ================= FETCH ALL CRM RECORDS FOR THIS LOCATION AT ONCE =================
+			crm_summary_map = Map();
+			nextToken = 0;
+			pageSize = 2000;
+			iterations = "".leftpad(1000).toList("");
+			for each  i in iterations
+			{
+				queryMap = Map();
+				crm_query = "select id, Amount_Summary,Carat_Summary, Ref_Date from International_Transaction where ((Ref_No is not null) and (Sale_Date >= '2026-01-01')) and ((Location = '" + loc_name + "') and (Entry_Type not like '%Not In NIVID%')) limit " + pageSize + " offset " + nextToken;
+				queryMap.put("select_query",crm_query);
+				resp = invokeurl
+				[
+					url :"https://www.zohoapis.com/crm/v7/coql"
+					type :POST
+					parameters:queryMap.toString()
+					connection:"crm"
+				];
+				if(resp == null || resp.get("data") == null || resp.get("data").isEmpty())
+				{
+					break;
+				}
+				for each  rec in resp.get("data")
+				{
+					if(rec.get("Carat_Summary") == null)
+					{
+						continue;
+					}
+					rec_date = rec.get("Ref_Date");
+					if(rec_date == null)
+					{
+						continue;
+					}
+					// Only process dates present in NIVID
+					if(!nivid_summary_map.containsKey(rec_date))
+					{
+						continue;
+					}
+					existing = crm_summary_map.get(rec_date);
+					if(existing == null)
+					{
+						existing = Map();
+						existing.put("CARAT",0.0);
+						existing.put("AMOUNT",0.0);
+						existing.put("TXN",0);
+					}
+					updated = Map();
+					updated.put("CARAT",existing.get("CARAT") + rec.get("Carat_Summary").toDecimal());
+					updated.put("AMOUNT",existing.get("AMOUNT") + rec.get("Amount_Summary").toDecimal());
+					updated.put("TXN",existing.get("TXN") + 1);
+					crm_summary_map.put(rec_date,updated);
+				}
+				if(resp.containsKey("info") && resp.get("info").get("more_records") == true)
+				{
+					nextToken = nextToken + pageSize;
+				}
+				else
+				{
+					break;
+				}
+			}
+			// ================= COMPARE NIVID vs CRM =================
+			for each  nivid_totals in nivid_summary_map
+			{
+				CRM_Ref_Date = nivid_totals.get("CRM_Ref_Date");
+				crm_data = crm_summary_map.get(CRM_Ref_Date);
+				if(crm_data == null)
+				{
+					totalCarat = 0.0;
+					total_amount = 0.0;
+					total_txn = 0;
+				}
+				else
+				{
+					totalCarat = crm_data.get("CARAT");
+					total_amount = crm_data.get("AMOUNT");
+					total_txn = crm_data.get("TXN");
+				}
+				amt_diff = total_amount - nivid_totals.get("TOTAL_AMOUNT");
+				if(total_txn != nivid_totals.get("TOTAL_INVOICES") || totalCarat != nivid_totals.get("TOTAL_CARAT") || amt_diff <= -10 || amt_diff >= 10)
+				{
+					email_content = "<br>Location: " + loc_name + " | Sale Date: " + CRM_Ref_Date + "<br>NIVID → Carat:" + nivid_totals.get("TOTAL_CARAT") + " | Txn:" + nivid_totals.get("TOTAL_INVOICES") + " | Amount:" + nivid_totals.get("TOTAL_AMOUNT") + "<br> CRM   → Carat:" + totalCarat + " | Txn:" + total_txn + " | Amount:" + total_amount + "<br>";
+					not_matched.add(email_content);
+				}
+			}
+		}
+		catch (e)
+		{
+			zoho.cliq.postToChat("CT_2243198219419748045_806975983","Reverse Sync Audit Failed - " + loc_name + newline + e,"cliq");
+			continue;
+		}
+	}
+	// ================= SEND EMAIL IF MISMATCHES FOUND =================
+	if(not_matched.size() > 0)
+	{
+		cc_list = List();
+		cc_list.add("nitesh.parihar@kgkmail.com");
+		cc_list.add("unmesh.desai@kgkmail.com");
+		// 			   to :"tofiq.jariwala@kgkmail.com"
+		sendmail
+		[
+			from :zoho.loginuserid
+			to :"tofiq.jariwala@kgkmail.com"
+			cc:cc_list
+			subject :"Reverse Sync Audit – Mismatch Found"
+			message :"<div>Dear CRM Team, <br><br>Below are the Details of Mis match data!<br><br>" + not_matched + "<br><br>Best Regards, <br>CRM</div>"
+		]
+	}
+}
+catch (e)
+{
+	zoho.cliq.postToChat("CT_2243198219419748045_806975983","Reverse Sync Audit Fatal Error" + newline + e,"cliq");
+}
+return "SUCCESS";
+}

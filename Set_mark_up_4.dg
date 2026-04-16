@@ -1,0 +1,14 @@
+void automation.Set_mark_up_4(Int lead_id)
+{
+deal_details = zoho.crm.getRecordById("Leads",lead_id);
+location = deal_details.get("Location");
+info location;
+// if(location == "Dubai" || location == "Antwerp" || location == "New York" || location == "United States")
+// {
+mp = Map();
+mp.put("Markup",4.0);
+info mp;
+update = zoho.crm.updateRecord("Leads",lead_id,mp);
+info update;
+// }
+}

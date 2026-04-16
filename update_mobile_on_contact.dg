@@ -1,0 +1,18 @@
+void automation.update_mobile_on_contact(Int id)
+{
+try 
+{
+	resp = zoho.crm.getRecordById("Contacts",id);
+	Phone = resp.get("Phone");
+	formatted = Phone.replaceall(" ","");
+	info formatted;
+	update = zoho.crm.updateRecord("Contacts",id,{"Mobile":formatted});
+	info update;
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Mobile field update failed in Contacts." + newline + " Contact - https://crm.zoho.com/crm/org821143611/tab/Contacts/" + id + newline + "" + e,"cliq");
+	info resp;
+}
+}

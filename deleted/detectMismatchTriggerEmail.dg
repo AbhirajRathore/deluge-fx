@@ -1,0 +1,92 @@
+string standalone.detectMismatchTriggerEmail()
+{
+try 
+{
+	// info "Reverse Sync Started";
+	current_date = now.toString("dd-MMM-yyyy","IST").toDate();
+	//zoho.currentdate;
+	info current_date;
+	location_code = "";
+	dd = zoho.currentdate.subDay(3).getDay();
+	// 	dd = 0;
+	iteration = "".leftPad(1).toList("");
+	for each  dt in iteration
+	{
+		nivid_fromDate = current_date.toStartOfMonth().addDay(dd).toString("dd/MMM/yyyy");
+		nivid_toDate = current_date.subDay(1).toString("dd/MMM/yyyy");
+		info "NIVID Action From Date: " + nivid_fromDate + " NIVID Action to Date: " + nivid_toDate;
+		loc_map_str = standalone.get_variable_value("config_locations","","");
+		// 	info loc_map_str;
+		loc_list = loc_map_str.toList();
+		json_hdr = {"Content-Type":"application/json"};
+		// add other locations if needed
+		for each  loc in loc_list
+		{
+			try 
+			{
+				stone_loc = loc.get("location_code");
+				if(stone_loc != location_code)
+				{
+					continue;
+				}
+				loc_name = loc.get("location_name");
+				nivid_token = loc.get("token");
+				base_api = standalone.get_variable_value("config_api",stone_loc,"url");
+				info "Processing Location: " + loc_name;
+				// ===== SINGLE NIVID API CALL (SELECT * ...) AND GROUP BY SALE_NO =====
+				header = Map();
+				header.put("Authorization","Bearer " + nivid_token);
+				header.put("Content-Type","application/json");
+				view_name = "V_CRM_REVERSE_SYNC_DATES";
+				criteria = "TO_DATE(ACTION_DATE) BETWEEN TO_DATE('" + nivid_fromDate + "') AND TO_DATE('" + nivid_toDate + "') AND TO_DATE(MASTER_SALE_DATE) >= TO_DATE('01/JAN/2025') AND SALE_TYPE IN ('LOCAL SALE','CONSIGNMENT SALE','EXPORT','DEEMED EXPORT','CONSIGNMENT EXPORT SALE')  Order by MASTER_SALE_DATE";
+				url = base_api + "/CRM/dynamic-query-data" + "?Name=" + view_name + "&Criteria=" + encodeUrl(criteria);
+				nivid_sale_list = list();
+				sale_resp = invokeurl
+				[
+					url :url
+					type :GET
+					headers:header
+				];
+				if(sale_resp == null)
+				{
+					continue;
+				}
+				sale_resp = sale_resp.get("Data");
+				for each  resp in sale_resp
+				{
+					action_date = resp.get("MASTER_SALE_DATE");
+					nivid_sale_list.add(action_date);
+				}
+				nivid_sale_list = nivid_sale_list.distinct();
+				Ref_Date = 'XXX';
+				if(nivid_sale_list.size() > 0)
+				{
+					for each  mst_date in nivid_sale_list
+					{
+						Ref_Date = mst_date.toString("dd/MMM/yyyy");
+						CRM_Ref_Date = mst_date.toString("dd/MMM/yy");
+						info "NIVID Date: " + Ref_Date + " CRM Date: " + CRM_Ref_Date;
+						// 						standalone.Reverse_Sync_Update(Ref_Date,CRM_Ref_Date,stone_loc);
+						// 						standalone.Reverse_Sync_Update_Price(Ref_Date,CRM_Ref_Date,stone_loc);
+					}
+				}
+			}
+			catch (e)
+			{
+				newline = hextoText("0A");
+				resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Reverse Sync Date Fetch Failed - " + loc_name + " - " + Ref_Date + newline + e,"cliq");
+				info resp;
+				continue;
+			}
+		}
+		// end location loop
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Reverse Sync Date Fetch Failed - " + loc_name + " - " + Ref_Date + newline + e,"cliq");
+	info resp;
+}
+return "";
+}

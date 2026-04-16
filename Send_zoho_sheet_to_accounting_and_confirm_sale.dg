@@ -1,0 +1,448 @@
+string button.Send_zoho_sheet_to_accounting_and_confirm_sale(String id)
+{
+resp = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v5/settings/variables"
+	type :get
+	connection:"zohocrm"
+];
+// info resp;
+variables = resp.get("variables");
+for each  variable in variables
+{
+	api_name = variable.get("api_name");
+	if(api_name == "nivid_india_token")
+	{
+		nivid_india_token = variable.get("value");
+	}
+	else if(api_name == "nivid_india_url")
+	{
+		nivid_india_url = variable.get("value");
+	}
+}
+a = invokeurl
+[
+	url :"https://crmsandbox.zoho.com/crm/v3/Sales_Orders/" + id
+	type :GET
+	connection:"crm"
+];
+// info a;
+Owner_id = a.getJson("data").getJSON("Owner").getJSON("id");
+Search_Users = zoho.crm.getRecords("users");
+// info Search_Users;
+users = Search_Users.get("users");
+for each  user in users
+{
+	user_id = user.get("id");
+	if(Owner_id == user_id)
+	{
+		user_full_name = user.get("full_name");
+		Nivid_Sales_Person_Name = user.get("Nivid_Sales_Person_Name");
+		info Nivid_Sales_Person_Name;
+		if(Nivid_Sales_Person_Name == null)
+		{
+			Nivid_Sales_Person_Name = "DIRECT";
+		}
+	}
+}
+Brokerage = a.getJson("data").getJSON("Brokerage");
+if(Brokerage == null)
+{
+	Brokerage = 0.0;
+}
+else
+{
+	Brokerage = Brokerage;
+}
+Broker_Name = a.getJson("data").getJSON("Broker_Name");
+if(Broker_Name == null)
+{
+	Broker_Name = "DIRECT";
+}
+else
+{
+	Broker_Name = a.getJson("data").getJSON("Broker_Name").get("name");
+}
+Bank_Rate = a.getJson("data").getJSON("Bank_Rate");
+if(Bank_Rate == null)
+{
+	return "Bank Rate Cannot be null!";
+}
+Account_Name = a.getJson("data").getJSON("Account_Name").getJSON("name");
+info Account_Name;
+Contact_Name = a.getJson("data").getJSON("Contact_Name").getJSON("name");
+info Contact_Name;
+Net_Amount_INR = a.getJson("data").getJSON("Net_Amount_INR");
+gross_amount = a.getJson("data").getJSON("Net_Amount_USD");
+info "gross_amount->" + gross_amount;
+Deal_Name = a.getJson("data").getJSON("Deal_Name").get("id");
+info "Deal ID - " + Deal_Name;
+Deal_full_name = a.getJson("data").getJSON("Deal_Name").get("name");
+Currency_Type = a.getJson("data").getJson("Currency_Type");
+info "Currency_Type---->" + Currency_Type;
+Payment_Details = a.getJson("data").getJson("Payment_Details");
+info "Payment_Details---->" + Payment_Details;
+// total_dicount = a.getJson("data").getJson("Discount");
+// info "total_dicount----->" + total_dicount;
+Adjustment = a.getJson("data").getJson("Adjustment");
+info "Adjustment---->" + Adjustment;
+Description = a.getJson("data").getJson("Description");
+info "Description---->" + Description;
+terms = a.getJson("data").getJson("Terms");
+info "terms--->" + terms;
+Term_Date = a.getJson("data").getJson("Term_Date");
+//.concat("T00:00:00.000Z");
+info "Term_Date--->" + Term_Date;
+// create_workbook =====================================
+paramMap = Map();
+paramMap.put('method','workbook.createfromtemplate');
+paramMap.put('resource_id','0zelo0b1a4ecfdba646a6877f6988a46d234e');
+paramMap.put('workbook_name',Account_Name + " - " + today.tostring("MM-dd-yyyy"));
+paramMap.put('parent_id','0zelo695ae0a474a4468ca9e00c9c3ea1f5cb');
+create_workbook = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/createfromtemplate"
+	type :POST
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+info create_workbook;
+workbook_name = create_workbook.get("workbook_name");
+info "Worksheet Name - " + workbook_name;
+resource_id = create_workbook.get("resource_id");
+info "resource_id - " + resource_id;
+workbook_url = create_workbook.get("workbook_url");
+info "workbook_url - " + workbook_url;
+// 	create_workbook END ========================================================================
+// Update Deal =================================================
+update_deal_map = Map();
+update_deal_map.put("Zoho_Sheet_Link",workbook_url);
+info "update_deal_map - " + update_deal_map;
+update_deal_Zoho_Sheet_Link = zoho.crm.updateRecord("Sales_Orders",id,update_deal_map,{"trigger":{"workflow"}});
+info "Update Deal - " + update_deal_Zoho_Sheet_Link;
+//Update Deal End ==========================================
+// Get Exchange Rate ========================================
+// header_data1 = Map();
+// header_data1.put("content-type","application/json");
+// exc = invokeurl
+// [
+// 	url :"https://nivid-api.kgkit.net:5541/api/nivid/dollar-exchange-rate"
+// 	type :GET
+// 	headers:header_data1
+// ];
+// info exc;
+// exe = exc.getJson("dollar_exchange_rate");
+// ====================================================
+subform = a.getJson("data").getJSON("Ordered_Items");
+info "Order Items = " + subform;
+s = list();
+s1 = list();
+dataList = List();
+for each  rec in subform
+{
+	Product_Name = rec.getJson("Product_Name").getJSON("name");
+	info "Product_Name->" + Product_Name;
+	Product_id = rec.getJson("Product_Name").getJSON("id");
+	// 	info Product_id;
+	rate_dollar = rec.getJson("Rate_Dollar");
+	info "rate_dollar->" + rate_dollar;
+	sale_net_amount = rec.getJson("Amount_USD");
+	info "sale_net_amount--->" + sale_net_amount;
+	Rate_Per_Carat_INR = ifNull(rec.getJson("Rate_Per_Carat_INR"),0.0);
+	Rate_In_INR = ifNull(rec.getJson("Rate_In_INR"),0.0);
+	Amount_Per_Carat_USD = ifNull(rec.getJson("Amount_Per_Carat_USD"),0.0);
+	get_prod = zoho.crm.getRecordById("Products",Product_id);
+	// 	============================================
+	WEIGHT = ifNull(get_prod.get("carat"),0);
+	info WEIGHT;
+	rate_dollar = ifNull(get_prod.get("rate_dollar"),0.0);
+	info "rate_dollar - " + rate_dollar;
+	LISTTOTAL = ifNull(get_prod.get("list_total"),0.0);
+	info LISTTOTAL;
+	profit_center = get_prod.get("profit_center");
+	info profit_center;
+	tran_status = get_prod.get("tran_status");
+	info "tran_status -" + tran_status;
+	if(tran_status == "PACK")
+	{
+		mp = Map();
+		mp.put("amount_dollar",LISTTOTAL);
+		mp.put("barcode",Product_Name);
+		mp.put("carat",WEIGHT);
+		mp.put("rate_dollar",rate_dollar);
+		mp.put("sale_discount_amount",0);
+		mp.put("sale_net_amount",LISTTOTAL);
+		// 		mp.put("department_code",Department);
+		// 		mp.put("profit_center","BBMFG-ST");
+		// 		mp.put("profit_center",profit_center);
+		s1.add(mp);
+	}
+	// 	==========================================
+	rap_total = get_prod.getJson("list_total");
+	info "rap_total->" + rap_total;
+	department_code = get_prod.getJSON("department_code");
+	info department_code;
+	carat = get_prod.getJson("carat");
+	info "carat->" + carat;
+	Discount = ifnull(get_prod.getJson("back_per_carat"),0.0);
+	info "Discount-->" + Discount;
+	Discount_Rap1 = rec.getJson("Total_Discount");
+	mp = Map();
+	// 	mp.put("amount_dollar",rap_total);
+	mp.put("barcode",Product_Name);
+	mp.put("carat",carat);
+	if(Discount_Rap1 != null)
+	{
+		mp.put("out_percent",Discount_Rap1);
+	}
+	Shape = ifNull(rec.get("Shape"),"");
+	size = ifNull(get_prod.get("size"),"");
+	carat = ifNull(get_prod.get("carat"),"");
+	color = ifNull(get_prod.get("color"),"");
+	if(color == "D" || color == "E" || color == "F" || color == "G" || color == "H" || color == "I" || color == "J" || color == "K" || color == "L" || color == "M" || color == "N")
+	{
+		mp.put("crm_price",0);
+		info "Normal Stone!!!";
+	}
+	else
+	{
+		mp.put("crm_price",ifNull(rec.get("MSP_Total"),0));
+		info "Fancy Stone!!!";
+		info ifNull(rec.get("MSP_Total"),0);
+	}
+	Quantity = ifNull(rec.get("Quantity"),"");
+	Clarity = ifNull(rec.get("Clarity"),"");
+	cut = ifNull(get_prod.get("cut"),"");
+	polish = ifNull(get_prod.get("polish"),"");
+	symmetry = ifNull(get_prod.get("symmetry"),"");
+	fluorescence = ifNull(get_prod.get("fluorescence"),"");
+	lab = ifNull(get_prod.get("lab"),"");
+	width = ifNull(get_prod.get("width"),"");
+	length = ifNull(get_prod.get("length"),"");
+	measurement3 = ifNull(get_prod.get("measurement3"),"");
+	table = ifNull(get_prod.get("table"),"");
+	depth = ifNull(get_prod.get("depth"),"");
+	list1 = ifNull(get_prod.get("list"),"");
+	list_total = ifNull(get_prod.get("list_total"),"");
+	lsp_per = ifNull(get_prod.get("lsp_per"),"");
+	lsp = ifNull(get_prod.get("lsp"),"");
+	lsp_total = ifNull(get_prod.get("lsp_total"),"");
+	certificate_no = ifNull(get_prod.get("certificate_no"),"");
+	crown_angle = ifNull(get_prod.get("crown_angle"),"");
+	star_length = ifNull(get_prod.get("star_length"),"");
+	lower_half = ifNull(get_prod.get("lower_half"),"");
+	girdle = ifNull(get_prod.get("girdle"),"");
+	key_to_symbols = ifNull(get_prod.get("key_to_symbols"),"");
+	inscription = ifNull(get_prod.get("inscription"),"");
+	culet = ifNull(get_prod.get("culet"),"");
+	// 	info get_prod;
+	dataMap1 = Map();
+	dataMap1.put('Record Owner',user_full_name);
+	dataMap1.put('Account Name',Account_Name);
+	dataMap1.put('Contact Name',Contact_Name);
+	dataMap1.put('Broker Name',Broker_Name);
+	dataMap1.put('Brokerage',Brokerage);
+	dataMap1.put('Deal Name',Deal_full_name);
+	dataMap1.put('Terms',terms);
+	dataMap1.put('ID',Product_Name);
+	dataMap1.put('Shp',Shape);
+	dataMap1.put('Qty',Quantity);
+	dataMap1.put('Cts',carat);
+	dataMap1.put('Size',size);
+	dataMap1.put('Col',color);
+	dataMap1.put('Cla',Clarity);
+	dataMap1.put('Cut',cut);
+	dataMap1.put('Pol',polish);
+	dataMap1.put('Sym',symmetry);
+	dataMap1.put('Flu',fluorescence);
+	dataMap1.put('Lab',lab);
+	dataMap1.put('Min',width);
+	dataMap1.put('Max',length);
+	dataMap1.put('Depth',measurement3);
+	dataMap1.put('Tab',table);
+	dataMap1.put('Depth%',depth);
+	dataMap1.put('Rap',list1);
+	dataMap1.put('RapValue',list_total);
+	dataMap1.put('Disc',Discount_Rap1);
+	dataMap1.put('₹PC',Rate_Per_Carat_INR);
+	dataMap1.put('₹Value',Rate_In_INR);
+	dataMap1.put('$ Rate',Bank_Rate);
+	dataMap1.put('$PC',Amount_Per_Carat_USD);
+	dataMap1.put('$Value',sale_net_amount);
+	dataMap1.put('Cert #',certificate_no);
+	dataMap1.put('C.A.',crown_angle);
+	dataMap1.put('ST',star_length);
+	dataMap1.put('LH',lower_half);
+	info "Row Data -  " + dataMap1;
+	// 	if(Discount == null)
+	// 	{
+	// 		mp.put("sale_discount_amount",0);
+	// 	}
+	// 	else
+	// 	{
+	// 		mp.put("sale_discount_amount",Discount);
+	// 	}
+	sum_disco = Discount * carat;
+	s.add(mp);
+	dataList.add(dataMap1);
+}
+// 	Add rows==================================================================
+paramMap = Map();
+paramMap.put('method','worksheet.jsondata.append');
+paramMap.put('worksheet_name','Sheet1');
+paramMap.put('header_row',2);
+paramMap.put('json_data',dataList);
+resourceId = resource_id;
+add_rows = invokeurl
+[
+	url :"https://sheet.zoho.com/api/v2/" + resource_id
+	type :POST
+	parameters:paramMap
+	connection:"sheet_connection"
+];
+info add_rows;
+// End Rows Adding =============================================================================
+// Unpack Stones
+// =====================================================
+if(s1.size() > 0)
+{
+	main_map1 = Map();
+	main_map1.put("selected_stones",s1);
+	main_map1.put("gross_amount_dollar",WEIGHT * rate_dollar);
+	main_map1.put("party_name",Account_Name);
+	main_map1.put("exchange_bank_rate","83.5");
+	main_map1.put("remark"," ");
+	main_map1.put("status","PENDING");
+	main_map1.put("un_pack",true);
+	// main_map.put("return_invoice_num",5555);
+	info main_map1;
+	header_data1 = Map();
+	header_data1.put("Authorization","Bearer " + nivid_india_token);
+	header_data1.put("Content-Type","application/json");
+	resp1 = invokeurl
+	[
+		url :nivid_india_url + "/api/nivid/pack-unpack-stones"
+		type :POST
+		parameters:main_map1.toString()
+		headers:header_data1
+	];
+}
+// =======================================================
+main_map = Map();
+main_map.put("selected_stones",s);
+main_map.put("currency_type",Currency_Type);
+main_map.put("payment_mode",Payment_Details);
+main_map.put("party_name",Account_Name);
+main_map.put("broker_name",Broker_Name);
+main_map.put("exchange_bank_rate",Bank_Rate);
+main_map.put("remark",Description);
+main_map.put("sale_person_name",Nivid_Sales_Person_Name);
+main_map.put("terms",terms);
+main_map.put("payment_date",Term_Date);
+main_map.put("brokerage_percentage",Brokerage);
+// main_map.put("sale_net_amount_dollar",gross_amount);
+// main_map.put("sale_discount_per",sum_disco);
+// main_map.put("sale_discount_amount",Adjustment);
+info main_map;
+header_data = Map();
+header_data.put("Authorization","Bearer " + nivid_india_token);
+header_data.put("Content-Type","application/json");
+resp = invokeurl
+[
+	url :nivid_india_url + "/api/nivid/local-sale"
+	type :POST
+	parameters:main_map.toString()
+	headers:header_data
+];
+info resp;
+// return "Sheet Created!";
+if(resp.contains("ref"))
+{
+	emails_to_send = {{"email":"raghuram.t@kgkmail.com"},{"email":"ketan.vaishnav@kgkmail.com"},{"email":"Abhishek.chauhan@kgkmail.com"},{"email":"aaditya.dhavale@kgkmail.com"}};
+	// 	for each  email in emails_to_send
+	// 	{
+	// Send_Email ==========================================================
+	sendfrom = Map();
+	sendfrom.put("email","kgk.developers@kgkmail.com");
+	sendto = Map();
+	sendto.put("email","kgk.developers@kgkmail.com");
+	tolist = List();
+	tolist.add(sendto);
+	emailcc = Map();
+	emailcc.put("email","raghuram.t@kgkmail.com");
+	tocclist = List();
+	tocclist.add(emailcc);
+	tempmp = Map();
+	tempmp.put("id","5870915000003332025");
+	Send_Email_mp = Map();
+	Send_Email_mp.put("from",sendfrom);
+	Send_Email_mp.put("to",tolist);
+	Send_Email_mp.put("cc",tocclist);
+	Send_Email_mp.put("bcc",emails_to_send);
+	intm = Map();
+	intm.put("inventory_template",{"id":"5870915000000436024","name":Account_Name + " - Sales Order.pdf"});
+	Send_Email_mp.put("inventory_details",intm);
+	Send_Email_mp.put("template",tempmp);
+	// Send_Email_mp.put("org_email",true);
+	Send_Email_dlist = List();
+	Send_Email_dlist.add(Send_Email_mp);
+	Send_Email_data = Map();
+	Send_Email_data.put("data",Send_Email_dlist);
+	// info "Send_Email_data - " + Send_Email_data;
+	Send_Email = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v2.1/Sales_Orders/" + id + "/actions/send_mail"
+		type :POST
+		parameters:Send_Email_data + ""
+		connection:"zohocrm"
+	];
+	info "Send_Email - " + Send_Email;
+	// Send_Email ==========================================================
+	// 	}
+	ref = resp.getJson("ref_invoice_no");
+	invoice_no = ref.getPrefix("/");
+	ref_date = resp.getJson("ref_date");
+	mp1 = Map();
+	mp1.put("Ref_Date",ref_date);
+	mp1.put("Ref_No",ref);
+	mp1.put("Invoice_No",invoice_no);
+	info mp;
+	upd = zoho.crm.updateRecord("Sales_Orders",id,mp1,{"trigger":{"workflow"}});
+	info upd;
+	transaction_search = zoho.crm.getRelatedRecords("SalesOrders","Deals",Deal_Name);
+	// 	info "transaction_search "+transaction_search;
+	transaction_amount = 0;
+	for each  transaction in transaction_search
+	{
+		transaction_id = transaction.get("id");
+		trasaction_details = invokeurl
+		[
+			url :"https://crm.zoho.com/crm/v3/Sales_Orders/" + transaction_id
+			type :GET
+			connection:"crm"
+		];
+		transaction_records = trasaction_details.get("data");
+		for each  transaction_record in transaction_records
+		{
+			Ref_No = transaction_record.get("Ref_No");
+			if(Ref_No != null)
+			{
+				transaction_Net_Amount_USD = transaction_record.get("Net_Amount_USD");
+				transaction_amount = transaction_amount + transaction_Net_Amount_USD;
+			}
+		}
+	}
+	info transaction_amount;
+	deal_map = Map();
+	deal_map.put("Stage","Closed Won");
+	deal_map.put("Closing_Date",today);
+	deal_map.put("Amount",transaction_amount);
+	update_deal = zoho.crm.updateRecord("Deals",Deal_Name,deal_map,{"trigger":{"workflow"}});
+	info "Update Deal - " + update_deal;
+	return "Success->" + resp + " [Unpack Stones - ]" + s1;
+}
+else
+{
+	return "Error- " + resp;
+}
+}

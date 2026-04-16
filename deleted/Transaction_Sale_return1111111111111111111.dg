@@ -1,0 +1,261 @@
+void automation.Transaction_Sale_return1111111111111111111(Int t_id,String stones_from_field)
+{
+update_transaction = zoho.crm.updateRecord("International_Transaction",t_id,{"Stones_Return":stones_from_field});
+Transaction_details = zoho.crm.getRecordById("International_Transaction",t_id);
+Name = Transaction_details.get("Name");
+Layout = Transaction_details.get("Layout").get("name");
+info Layout;
+if(Layout == "Local Sale")
+{
+	temp_id = 5870915000039107028;
+}
+else if(Layout == "Consignment Sale")
+{
+	Transaction_Category = Transaction_details.get("Transaction_Category");
+	if(Transaction_Category == "Consignment Sale")
+	{
+		temp_id = 5870915000039107050;
+	}
+	else if(Transaction_Category == "Export Sale")
+	{
+		temp_id = 5870915000039107039;
+	}
+}
+info temp_id;
+if(temp_id == null)
+{
+	return;
+}
+Location = Transaction_details.get("Location");
+if(Location == "India")
+{
+	email_list = {{"email":"vijay.gadia@kgkmail.com"},{"email":"ajay.ghiya@kgkmail.com"},{"email":"dinesh.kothari@kgkmail.com"}};
+	Stone_Location = "IND";
+}
+else if(Location == "Dubai")
+{
+	email_list = {{"email":"ramesh.menaria@kgkmail.com"},{"email":"hasmukh.ramani@kgkmail.com"},{"email":"piyush.mittal@kgkmail.com"}};
+	Stone_Location = "DXB";
+}
+else
+{
+	return;
+}
+newline = hextoText("0A");
+Stones_Return = stones_from_field.toList(newline);
+info "Return Stones Size - " + Stones_Return.size();
+// info Stones_Return;
+dataList = List();
+for each  stone in Stones_Return
+{
+	info stone;
+	International_Stones = zoho.crm.searchRecords("Products","(Product_Name:equals:" + stone + ")and(location:equals:" + Stone_Location + ")");
+	for each  stone_details in International_Stones
+	{
+		Stones = stone_details.get("id");
+		dataMap1 = Map();
+		dataMap1.put('Inventory Name',ifNull(stone_details.get("Product_Name"),""));
+		dataMap1.put('location',ifNull(stone_details.get("location"),""));
+		dataMap1.put('Tran Status',ifNull(stone_details.get("tran_status"),""));
+		dataMap1.put('Lot Location',ifNull(stone_details.get("lot_location"),""));
+		dataMap1.put('Quantity',1);
+		dataMap1.put('Carat',ifNull(stone_details.get("carat"),0.0));
+		dataMap1.put('Color',ifNull(stone_details.get("color"),""));
+		dataMap1.put('Clarity',ifNull(stone_details.get("clarity"),""));
+		dataMap1.put('Shape',ifNull(stone_details.get("shape"),""));
+		dataMap1.put('Lab',ifNull(stone_details.get("lab"),""));
+		dataMap1.put('Certificate No',ifNull(stone_details.get("certificate_no"),""));
+		dataMap1.put('list',ifNull(stone_details.get("list"),0.0));
+		dataMap1.put('list Total',ifNull(stone_details.get("list_total"),0.0));
+		dataMap1.put('MSP (%)',ifNull(stone_details.get("msp_per"),0.0));
+		dataMap1.put('MSP',ifNull(stone_details.get("msp"),0.0));
+		dataMap1.put('MSP Total',ifNull(stone_details.get("msp_total"),0.0));
+		dataMap1.put('Rapnet %',ifNull(stone_details.get("Rapnet"),0));
+		dataMap1.put('Rapnet',ifNull(stone_details.get("Rapnet1"),""));
+		dataMap1.put('Rapnet Total',ifNull(stone_details.get("Rapnet_Total"),""));
+		dataMap1.put('CUT',ifNull(stone_details.get("cut"),""));
+		dataMap1.put('Polish',ifNull(stone_details.get("polish"),""));
+		dataMap1.put('SYM',ifNull(stone_details.get("symmetry"),""));
+		dataMap1.put('FLUO',ifNull(stone_details.get("fluorescence"),""));
+		dataMap1.put('Table',ifNull(stone_details.get("table"),""));
+		dataMap1.put('Depth Percentage',ifNull(stone_details.get("depth_percentage"),""));
+		dataMap1.put('Width',ifNull(stone_details.get("width"),""));
+		dataMap1.put('length',ifNull(stone_details.get("length"),""));
+		dataMap1.put('Girdle',ifNull(stone_details.get("girdle"),""));
+		dataMap1.put('Culet',ifNull(stone_details.get("culet"),""));
+		dataMap1.put('Inscription',ifNull(stone_details.get("inscription"),""));
+		dataMap1.put('Key to Symbols',ifNull(stone_details.get("key_to_symbols"),""));
+		dataMap1.put('Lab Comments',ifNull(stone_details.get("lab_comments"),""));
+		dataMap1.put('Video Url',ifNull(stone_details.get("video_url"),""));
+		dataMap1.put('Image Url',ifNull(stone_details.get("image_url"),""));
+		dataMap1.put('Certificate Url',ifNull(stone_details.get("certificate_url"),""));
+		dataList.add(dataMap1);
+	}
+}
+/*
+
+iterations = "".leftpad(20 - 1).toList("");
+pageCounter = 1;
+for each  iteration in iterations
+{
+	page = pageCounter;
+	perPage = 200;
+	International_Stones = zoho.crm.getRelatedRecords("Inventory","International_Transaction",t_id,page,perPage);
+	if(International_Stones.size() == 0)
+	{
+		break;
+	}
+	else
+	{
+		for each  x_stones in International_Stones
+		{
+			Stones = x_stones.get("Stone").get("id");
+			stone_details = zoho.crm.getRecordById("Products",Stones);
+			dataMap1 = Map();
+			dataMap1.put('Inventory Name',ifNull(stone_details.get("Product_Name"),""));
+			dataMap1.put('location',ifNull(stone_details.get("location"),""));
+			dataMap1.put('Tran Status',ifNull(stone_details.get("tran_status"),""));
+			dataMap1.put('Lot Location',ifNull(stone_details.get("lot_location"),""));
+			dataMap1.put('Quantity',1);
+			dataMap1.put('Carat',ifNull(stone_details.get("carat"),0.0));
+			dataMap1.put('Color',ifNull(stone_details.get("color"),""));
+			dataMap1.put('Clarity',ifNull(stone_details.get("clarity"),""));
+			dataMap1.put('Shape',ifNull(stone_details.get("shape"),""));
+			dataMap1.put('Lab',ifNull(stone_details.get("lab"),""));
+			dataMap1.put('Certificate No',ifNull(stone_details.get("certificate_no"),""));
+			dataMap1.put('list',ifNull(stone_details.get("list"),0.0));
+			dataMap1.put('list Total',ifNull(stone_details.get("list_total"),0.0));
+			dataMap1.put('MSP (%)',ifNull(stone_details.get("msp_per"),0.0));
+			dataMap1.put('MSP',ifNull(stone_details.get("msp"),0.0));
+			dataMap1.put('MSP Total',ifNull(stone_details.get("msp_total"),0.0));
+			dataMap1.put('Rapnet %',ifNull(stone_details.get("Rapnet"),0));
+			dataMap1.put('Rapnet',ifNull(stone_details.get("Rapnet1"),""));
+			dataMap1.put('Rapnet Total',ifNull(stone_details.get("Rapnet_Total"),""));
+			dataMap1.put('CUT',ifNull(stone_details.get("cut"),""));
+			dataMap1.put('Polish',ifNull(stone_details.get("polish"),""));
+			dataMap1.put('SYM',ifNull(stone_details.get("symmetry"),""));
+			dataMap1.put('FLUO',ifNull(stone_details.get("fluorescence"),""));
+			dataMap1.put('Table',ifNull(stone_details.get("table"),""));
+			dataMap1.put('Depth Percentage',ifNull(stone_details.get("depth_percentage"),""));
+			dataMap1.put('Width',ifNull(stone_details.get("width"),""));
+			dataMap1.put('length',ifNull(stone_details.get("length"),""));
+			dataMap1.put('Girdle',ifNull(stone_details.get("girdle"),""));
+			dataMap1.put('Culet',ifNull(stone_details.get("culet"),""));
+			dataMap1.put('Inscription',ifNull(stone_details.get("inscription"),""));
+			dataMap1.put('Key to Symbols',ifNull(stone_details.get("key_to_symbols"),""));
+			dataMap1.put('Lab Comments',ifNull(stone_details.get("lab_comments"),""));
+			dataMap1.put('Video Url',ifNull(stone_details.get("video_url"),""));
+			dataMap1.put('Image Url',ifNull(stone_details.get("image_url"),""));
+			dataMap1.put('Certificate Url',ifNull(stone_details.get("certificate_url"),""));
+			dataList.add(dataMap1);
+		}
+	}
+	pageCounter = pageCounter + 1;
+}
+*/
+info "Stone Size - " + dataList.size();
+if(dataList.size() > 0)
+{
+	// Create Workbook ===============================
+	paramMap = Map();
+	paramMap.put('method','workbook.createfromtemplate');
+	paramMap.put('resource_id','tkojn4a0001e4b5b54a1b96dbb19d08abca94');
+	paramMap.put('workbook_name',Name + " - " + today.tostring("MM-dd-yyyy"));
+	create_workbook = invokeurl
+	[
+		url :"https://sheet.zoho.com/api/v2/createfromtemplate"
+		type :POST
+		parameters:paramMap
+		connection:"sheet_connection"
+	];
+	// 	info create_workbook;
+	workbook_name = create_workbook.get("workbook_name");
+	resource_id = create_workbook.get("resource_id");
+	workbook_url = create_workbook.get("workbook_url");
+	info "workbook_url - " + workbook_url;
+	info "Recourse ID - " + resource_id;
+	// Add Rows to Sheet =============================================================================
+	paramMap = Map();
+	paramMap.put('method','worksheet.jsondata.append');
+	paramMap.put('worksheet_name','Sheet1');
+	paramMap.put('header_row',2);
+	paramMap.put('json_data',dataList);
+	add_rows = invokeurl
+	[
+		url :"https://sheet.zoho.com/api/v2/" + resource_id
+		type :POST
+		parameters:paramMap
+		connection:"sheet_connection"
+	];
+	info add_rows;
+	// Download workbook =============================================================================
+	paramMap = Map();
+	paramMap.put('method','workbook.download');
+	paramMap.put('format','xlsx');
+	paramMap.put('worksheet_name','sheet1');
+	dataMap = Map();
+	dataMap.put('print_type',"SHEET");
+	dataMap.put('margin_left',0.5);
+	dataMap.put('margin_right',0.5);
+	dataMap.put('page_order',"overDown");
+	dataMap.put('add_chart',true);
+	paramMap.put('page_settings',dataMap);
+	file_response = invokeurl
+	[
+		url :"https://sheet.zoho.com/api/v2/download/" + resource_id
+		type :POST
+		parameters:paramMap
+		connection:"sheet_connection"
+	];
+	info file_response;
+	// 	============================================
+	file_response.setParamName("file");
+	response = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v5/files"
+		type :POST
+		files:file_response
+		connection:"crm"
+	];
+	info response;
+	fid = response.get("data").get(0).get("details").get("id");
+	info "FID - " + fid;
+	attachmap = Map();
+	attachmap.put("id",fid);
+	alist = List();
+	alist.add(attachmap);
+	// 	Send Email ================================
+	sendfrom = Map();
+	sendfrom.put("email","unmesh.desai@kgkmail.com");
+	sendto = Map();
+	sendto.put("email","unmesh.desai@kgkmail.com");
+	tolist = List();
+	tolist.add(sendto);
+	emailcc = Map();
+	emailcc.put("email","email.support@kgkmail.com");
+	tocclist = List();
+	tocclist.add(emailcc);
+	tempmp = Map();
+	tempmp.put("id",temp_id);
+	Send_Email_mp = Map();
+	Send_Email_mp.put("from",sendfrom);
+	Send_Email_mp.put("to",tolist);
+	Send_Email_mp.put("bcc",email_list);
+	Send_Email_mp.put("template",tempmp);
+	Send_Email_mp.put("attachments",alist);
+	Send_Email_mp.put("org_email",false);
+	Send_Email_dlist = List();
+	Send_Email_dlist.add(Send_Email_mp);
+	Send_Email_data = Map();
+	Send_Email_data.put("data",Send_Email_dlist);
+	// info "Send_Email_data - " + Send_Email_data;
+	Send_Email = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v2.1/International_Transaction/" + t_id + "/actions/send_mail"
+		type :POST
+		parameters:Send_Email_data + ""
+		connection:"zohocrm"
+	];
+	info "Send_Email - " + Send_Email;
+}
+}

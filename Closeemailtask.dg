@@ -1,0 +1,9 @@
+void automation.Closeemailtask(Int Id)
+{
+resp = zoho.crm.getRelatedRecords("Tasks","Leads",Id);
+if(resp.size() > 0)
+{
+	upd = zoho.crm.updateRecord("Tasks",resp.get(0).get("id"),{"Status":"Completed"});
+	info upd;
+}
+}

@@ -1,0 +1,57 @@
+string button.add_parent_on_list(String ids)
+{
+if(ids == "")
+{
+	return "No Accounts Selected";
+}
+users = zoho.crm.getRecords("users");
+// 	info users;
+users = users.get("users");
+for each  user in users
+{
+	if(user.get("full_name").contains("Unmesh") && user.get("status") == "active")
+	{
+		User_Name = user.get("full_name");
+		user_id = user.get("id");
+		break;
+	}
+	else
+	{
+		continue;
+	}
+}
+if(user_id == null)
+{
+	return "Owner Not Defined";
+}
+info User_Name;
+info user_id;
+id_list = ids.toList("|||");
+if(id_list.size() > 0)
+{
+	mp = Map();
+	mp.put("Account_Name","Group Accounts " + id_list.size());
+	mp.put("Created_By_Function",true);
+	mp.put("Owner",user_id);
+	mp.put("customer_info","In-House Company");
+	create_acc = zoho.crm.createRecord("Accounts",mp);
+	info create_acc;
+	new_acc_id = create_acc.get("id");
+	for each  acc_id in id_list
+	{
+		// 		acc_details = zoho.crm.getRecordById("Accounts", acc_id);
+		// 		Parent_acc = acc_details.get("Parent_Account");
+		// 		if ( Parent_acc != null ) 
+		//         {
+		// 			return "This account, "+acc_details.get("Account_Name")+", is already associated with the parent account "+Parent_acc.get("name");
+		//         }
+		update_acc = zoho.crm.updateRecord("Accounts",acc_id,{"Parent_Account":new_acc_id});
+	}
+	openUrl("https://crm.zoho.com/crm/org821143611/tab/Accounts/" + new_acc_id,"new window");
+	return "The selected accounts have been linked to the new account. Once you update the parent name of the new account, all selected accounts will be moved under it as the parent account.";
+}
+else
+{
+	return "Select atleast 1 Account!";
+}
+}

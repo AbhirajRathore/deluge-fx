@@ -1,0 +1,456 @@
+void automation.update_inventory_on_stone_actions_Transaction(Int d_id)
+{
+Dispatch_details = zoho.crm.getRecordById("International_Transaction",d_id);
+Owner = Dispatch_details.get("Owner").get("id");
+users_resp = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v6/users/" + Owner
+	type :GET
+	connection:"zohocrm"
+];
+users = users_resp.get("users");
+for each  user in users
+{
+	User_Location = user.get("Location");
+}
+info "User Location - " + User_Location;
+Locked__s = Dispatch_details.get("Locked__s");
+if(Locked__s == false)
+{
+	Owner = Dispatch_details.get("Owner").get("id");
+	Account_Name = Dispatch_details.get("Account_Name");
+	if(Account_Name != null)
+	{
+		account_id = Account_Name.get("id");
+		acc_deatails = zoho.crm.getRecordById("Accounts",account_id);
+		Markup = ifNull(acc_deatails.get("Markup"),0.0);
+	}
+	else
+	{
+		Markup = 0.0;
+	}
+	Stone_Actions = Dispatch_details.get("Stone_Actions");
+	Remove_Lot_Number1 = Dispatch_details.get("Lot_Number");
+	// info Remove_Lot_Number1;
+	if(Remove_Lot_Number1 != null)
+	{
+		Remove_Lot_Number1 = Remove_Lot_Number1.replaceAll("\n",",").replaceAll("	","").toList(",");
+		// 	info Remove_Lot_Number1;
+	}
+	// Get all the stones from deals==========================================
+	if(Stone_Actions == "Add Stones")
+	{
+		info "================ Add Stone ================";
+		iterations = "".leftpad(20 - 1).toList("");
+		pageCounter = 1;
+		numRecords = 0;
+		deal_Stones_list = List();
+		for each  iteration in iterations
+		{
+			page = pageCounter;
+			perPage = 200;
+			RecordsListBatch = zoho.crm.getRelatedRecords("Inventory","International_Transaction",d_id,page,perPage);
+			if(RecordsListBatch.isEmpty())
+			{
+				break;
+			}
+			else
+			{
+				for each  deal_x_inventory in RecordsListBatch
+				{
+					deal_X_inventory_id = deal_x_inventory.get("id");
+					deal_x_inventory_stone_id = deal_x_inventory.get("Stone").get("id");
+					deal_x_inventory_stone_name = deal_x_inventory.get("Stone").get("name").toString();
+					deal_Stones_list.add(deal_x_inventory_stone_name);
+				}
+				pageCounter = pageCounter + 1;
+				numRecords = numRecords + RecordsListBatch.size();
+			}
+		}
+		info "Stone List Size - " + deal_Stones_list.size();
+		info "Lot Number Size - " + Remove_Lot_Number1.size();
+		Remove_Lot_Number1.removeAll(deal_Stones_list);
+		info "Total number of Stones to be Added - " + Remove_Lot_Number1.size();
+		// info Remove_Lot_Number1;
+		createList = List();
+		for each  lot_number in Remove_Lot_Number1
+		{
+			search_Stone = zoho.crm.searchRecords("Products","(Product_Name:equals:" + lot_number + ") or (" + "certificate_no:equals:" + lot_number + ")");
+			if(search_Stone.size() > 0)
+			{
+				for each  stone in search_Stone
+				{
+					if(User_Location == stone.get("location"))
+					{
+						Product_id = stone.get("id");
+						MSP_Total = ifNull(stone.get("msp_total"),0.0).toString();
+						list_total = ifNull(stone.get("list_total"),0.0).toString();
+						Carat = ifNull(stone.get("carat"),0.0);
+						msp_per = abs(ifNull(stone.get("msp_per"),0.0));
+						MSP = -1 * msp_per;
+						list1 = ifNull(stone.get("list"),0.0);
+						LSP = ifNull(stone.get("lsp"),0.0).toString();
+						LAB = ifNull(stone.get("lab"),"");
+						CUT = ifNull(stone.get("cut"),"");
+						Color = ifNull(stone.get("color"),"").toString();
+						Clarity = ifNull(stone.get("clarity"),"");
+						DEPT = ifNull(stone.get("department_name"),"");
+						Flow = ifNull(stone.get("fluorescence"),"");
+						Shape = ifNull(stone.get("shape"),"");
+						Symmetry = ifNull(stone.get("symmetry"),"");
+						Tran_Status = ifNull(stone.get("tran_status"),"");
+						recordMap1 = {"Stone":Product_id,"Transaction":d_id,"Carat":Carat,"list":list1,"MSP":MSP,"MSP_Total":MSP_Total,"List_Total":list_total,"Markup":Markup,"Owner":Owner,"LSP":LSP,"LAB":LAB,"CUT":CUT,"Color":Color,"Clarity":Clarity,"DEPT":DEPT,"Flow":Flow,"Shape":Shape,"Symmetry":Symmetry,"Tran_Status":Tran_Status};
+						createList.add(recordMap1);
+					}
+				}
+			}
+		}
+		createList = createList.distinct();
+		info "Main Size - " + createList.size();
+		// 		for less than 100 records ...................
+		if(createList.size() <= 100 && createList.size() > 0)
+		{
+			info "Create List is less than equals 100";
+			bulk_create = zoho.crm.bulkCreate("Transaction_X_Inventory",createList);
+			for each  bulk in bulk_create
+			{
+				info bulk.get("code");
+				break;
+			}
+		}
+		else if(createList.size() > 100)
+		{
+			stone_iterations = "".leftpad(20 - 1).toList("");
+			for each  stone_iteration in stone_iterations
+			{
+				info createList.size();
+				if(createList.size() > 100)
+				{
+					info "Create List is greater than 100";
+					newListVar = createList.subList(0,100);
+					// 				info "New List - " + newListVar.size();
+					bulk_create = zoho.crm.bulkCreate("Transaction_X_Inventory",newListVar);
+					// 				info bulk_create;
+					for each  bulk in bulk_create
+					{
+						info bulk.get("code");
+						break;
+					}
+					createList.removeAll(newListVar);
+				}
+				else
+				{
+					info "Create List is less than equals 100";
+					bulk_create = zoho.crm.bulkCreate("Transaction_X_Inventory",createList);
+					for each  bulk in bulk_create
+					{
+						info bulk.get("code");
+						break;
+					}
+					break;
+				}
+			}
+		}
+	}
+	else if(Stone_Actions == "Remove Stones")
+	{
+		info "================ Remove Stone ================";
+		deal_Stones_list = List();
+		remove_deal_stone_list = List();
+		iterations = "".leftpad(20 - 1).toList("");
+		pageCounter = 1;
+		numRecords = 0;
+		for each  iteration in iterations
+		{
+			page = pageCounter;
+			perPage = 200;
+			RecordsListBatch = zoho.crm.getRelatedRecords("Inventory","International_Transaction",d_id,page,perPage);
+			if(RecordsListBatch.isEmpty())
+			{
+				break;
+			}
+			else
+			{
+				for each  deal_x_inventory in RecordsListBatch
+				{
+					remove_stone_map = Map();
+					remove_stone_map.put("deal_X_inventory_id",deal_x_inventory.get("id"));
+					remove_stone_map.put("stonename",deal_x_inventory.get("Stone").get("name").toString());
+					remove_deal_stone_list.add(remove_stone_map);
+					deal_Stones_list.add(deal_x_inventory.get("Stone").get("name").toString());
+				}
+				pageCounter = pageCounter + 1;
+				numRecords = numRecords + RecordsListBatch.size();
+			}
+		}
+		info "Stones in Deal Size - " + deal_Stones_list.size();
+		info "Remove Stones Size - " + Remove_Lot_Number1.size();
+		Common_stone_list = Remove_Lot_Number1.intersect(deal_Stones_list);
+		info "Confirmed remove stone list size - " + Common_stone_list.size();
+		Confirmed_stones_list = List();
+		for each  remove_stone_ids in remove_deal_stone_list
+		{
+			if(Common_stone_list.contains(remove_stone_ids.get("stonename")))
+			{
+				Confirmed_stones_list.add(remove_stone_ids.get("deal_X_inventory_id"));
+			}
+		}
+		stone_iterations = "".leftpad(20 - 1).toList("");
+		for each  stone_iteration in stone_iterations
+		{
+			info "Stones remaning to remove size - " + Confirmed_stones_list.size();
+			if(Confirmed_stones_list.size() > 100)
+			{
+				info "Create List is greater than 100";
+				newListVar = Confirmed_stones_list.subList(0,100);
+				param = Map();
+				param.put("ids",newListVar);
+				// info param;
+				delete_resp = invokeurl
+				[
+					url :"https://www.zohoapis.com/crm/v6/Transaction_X_Inventory/actions/mass_delete"
+					type :post
+					parameters:param.toString()
+					connection:"currency_connection"
+				];
+				// info delete_resp;
+				delete_resp_code = delete_resp.get("data");
+				for each  code in delete_resp_code
+				{
+					info code.get("code");
+					break;
+				}
+				Confirmed_stones_list.removeAll(newListVar);
+			}
+			else
+			{
+				info "Create List is less than equals 100";
+				param = Map();
+				param.put("ids",Confirmed_stones_list);
+				// info param;
+				delete_resp = invokeurl
+				[
+					url :"https://www.zohoapis.com/crm/v6/Transaction_X_Inventory/actions/mass_delete"
+					type :post
+					parameters:param.toString()
+					connection:"currency_connection"
+				];
+				// info delete_resp;
+				delete_resp_code = delete_resp.get("data");
+				for each  code in delete_resp_code
+				{
+					info code.get("code");
+					break;
+				}
+				break;
+			}
+		}
+	}
+	else if(Stone_Actions == "Keep Stones")
+	{
+		info "================ Keep Stone ================";
+		deal_Stones_list = List();
+		Deal_stone_map_list = List();
+		iterations = "".leftpad(20 - 1).toList("");
+		pageCounter = 1;
+		numRecords = 0;
+		for each  iteration in iterations
+		{
+			page = pageCounter;
+			perPage = 200;
+			RecordsListBatch = zoho.crm.getRelatedRecords("Inventory","International_Transaction",d_id,page,perPage);
+			if(RecordsListBatch.isEmpty())
+			{
+				break;
+			}
+			else
+			{
+				for each  deal_x_inventory in RecordsListBatch
+				{
+					remove_stone_map = Map();
+					remove_stone_map.put("deal_X_inventory_id",deal_x_inventory.get("id"));
+					remove_stone_map.put("stonename",deal_x_inventory.get("Stone").get("name").toString());
+					Deal_stone_map_list.add(remove_stone_map);
+					deal_Stones_list.add(deal_x_inventory.get("Stone").get("name").toString());
+				}
+				pageCounter = pageCounter + 1;
+				numRecords = numRecords + RecordsListBatch.size();
+			}
+		}
+		info "Stones in Deal Size - " + Deal_stone_map_list.size();
+		info "Lot number Size - " + Remove_Lot_Number1.size();
+		skip_stone_id_list = List();
+		skip_stone_list = Remove_Lot_Number1.intersect(deal_Stones_list);
+		info "Number of stones to be Skip - " + skip_stone_list.size();
+		deal_Stones_list.removeAll(skip_stone_list);
+		list_of_delete_stones_id = List();
+		for each  deal_stone_map in Deal_stone_map_list
+		{
+			if(deal_Stones_list.contains(deal_stone_map.get("stonename")))
+			{
+				list_of_delete_stones_id.add(deal_stone_map.get("deal_X_inventory_id"));
+			}
+		}
+		info "Number of stones to be deleted - " + list_of_delete_stones_id.size();
+		// 	for delete stones...................
+		stone_iterations = "".leftpad(20 - 1).toList("");
+		for each  stone_iteration in stone_iterations
+		{
+			info "Stones remaning to remove size - " + list_of_delete_stones_id.size();
+			if(list_of_delete_stones_id.size() > 100)
+			{
+				info "Create List is greater than 100";
+				newListVar = list_of_delete_stones_id.subList(0,100);
+				param = Map();
+				param.put("ids",newListVar);
+				// info param;
+				delete_resp = invokeurl
+				[
+					url :"https://www.zohoapis.com/crm/v6/Transaction_X_Inventory/actions/mass_delete"
+					type :post
+					parameters:param.toString()
+					connection:"currency_connection"
+				];
+				// 				info delete_resp;
+				delete_resp_code = delete_resp.get("data");
+				// 				info delete_resp_code;
+				for each  code in delete_resp_code
+				{
+					info code.get("code");
+					break;
+				}
+				list_of_delete_stones_id.removeAll(newListVar);
+			}
+			else if(list_of_delete_stones_id.size() <= 100)
+			{
+				info "Create List is less than equals 100";
+				param = Map();
+				param.put("ids",list_of_delete_stones_id);
+				// 				info param;
+				delete_resp = invokeurl
+				[
+					url :"https://www.zohoapis.com/crm/v6/Transaction_X_Inventory/actions/mass_delete"
+					type :post
+					parameters:param.toString()
+					connection:"currency_connection"
+				];
+				// 				info delete_resp;
+				delete_resp_code = delete_resp.get("data");
+				for each  code in delete_resp_code
+				{
+					info code.get("code");
+					break;
+				}
+				break;
+			}
+			else
+			{
+				break;
+			}
+		}
+		// 			for add stones.................
+		Remove_Lot_Number1.removeAll(skip_stone_list);
+		info "Number of stones to be added - " + Remove_Lot_Number1.size();
+		createList = List();
+		if(Remove_Lot_Number1.size() > 0)
+		{
+			for each  lot_number in Remove_Lot_Number1
+			{
+				search_Stone = zoho.crm.searchRecords("Products","(Product_Name:equals:" + lot_number + ") or (" + "certificate_no:equals:" + lot_number + ")");
+				// 					info search_Stone;
+				if(search_Stone.size() == 1)
+				{
+					for each  stone in search_Stone
+					{
+						if(User_Location == stone.get("location") || User_Location == "ADMIN")
+						{
+							Product_id = stone.get("id");
+							MSP_Total = ifNull(stone.get("msp_total"),0.0).toString();
+							list_total = ifNull(stone.get("list_total"),0.0).toString();
+							Carat = ifNull(stone.get("carat"),0.0);
+							msp_per = abs(ifNull(stone.get("msp_per"),0.0));
+							MSP = -1 * msp_per;
+							list1 = ifNull(stone.get("list"),0.0);
+							LSP = ifNull(stone.get("lsp"),0.0).toString();
+							LAB = ifNull(stone.get("lab"),"");
+							CUT = ifNull(stone.get("cut"),"");
+							Color = ifNull(stone.get("color"),"").toString();
+							Clarity = ifNull(stone.get("clarity"),"");
+							DEPT = ifNull(stone.get("department_name"),"");
+							Flow = ifNull(stone.get("fluorescence"),"");
+							Shape = ifNull(stone.get("shape"),"");
+							Symmetry = ifNull(stone.get("symmetry"),"");
+							Tran_Status = ifNull(stone.get("tran_status"),"");
+							recordMap1 = {"Stone":Product_id,"Transaction":d_id,"Carat":Carat,"list":list1,"MSP":MSP,"MSP_Total":MSP_Total,"List_Total":list_total,"Markup":Markup,"Owner":Owner,"LSP":LSP,"LAB":LAB,"CUT":CUT,"Color":Color,"Clarity":Clarity,"DEPT":DEPT,"Flow":Flow,"Shape":Shape,"Symmetry":Symmetry,"Tran_Status":Tran_Status};
+							createList.add(recordMap1);
+						}
+					}
+				}
+			}
+		}
+		createList = createList.distinct();
+		// 		for less than 100 records ...................
+		if(createList.size() <= 100 && createList.size() > 0)
+		{
+			info "Create List is less than equals 100";
+			bulk_create = zoho.crm.bulkCreate("Transaction_X_Inventory",createList);
+			for each  bulk in bulk_create
+			{
+				info bulk.get("code");
+				break;
+			}
+		}
+		else if(createList.size() > 100)
+		{
+			stone_iterations = "".leftpad(20 - 1).toList("");
+			for each  stone_iteration in stone_iterations
+			{
+				info createList.size();
+				if(createList.size() > 100)
+				{
+					info "Create List is greater than 100";
+					newListVar = createList.subList(0,100);
+					// 				info "New List - " + newListVar.size();
+					bulk_create = zoho.crm.bulkCreate("Transaction_X_Inventory",newListVar);
+					// 				info bulk_create;
+					for each  bulk in bulk_create
+					{
+						info bulk.get("code");
+						break;
+					}
+					createList.removeAll(newListVar);
+				}
+				else
+				{
+					info "Create List is less than equals 100";
+					bulk_create = zoho.crm.bulkCreate("Transaction_X_Inventory",createList);
+					for each  bulk in bulk_create
+					{
+						info bulk.get("code");
+						break;
+					}
+					break;
+				}
+			}
+		}
+		else
+		{
+			info "No stones to add!";
+		}
+	}
+	mp = Map();
+	mp.put("Stone_Actions","");
+	mp.put("Lot_Number","");
+	update = zoho.crm.updateRecord("International_Transaction",d_id,mp,{"trigger":{"workflow"}});
+	info "Pages Iterated: " + pageCounter;
+	info "Total Records was in Deal: " + numRecords;
+	// ===========================================
+}
+else
+{
+	mp = Map();
+	mp.put("Stone_Actions","");
+	mp.put("Lot_Number","");
+	update = zoho.crm.updateRecord("International_Transaction",d_id,mp);
+}
+}

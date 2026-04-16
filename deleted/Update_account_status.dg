@@ -1,0 +1,120 @@
+void schedule.Update_account_status()
+{
+try 
+{
+	pageCounter = 1;
+	updatedCount = 0;
+	numRecords = 0;
+	createList = List();
+	perPage = 200;
+	today = zoho.currentdate;
+	hasMoreRecords = true;
+	// Instead of using leftpad, create a list of numbers for iteration
+	iterations = "".leftpad(1000).toList("");
+	six_months_ago = today.subMonth(6);
+	formatted_date = six_months_ago.toString("yyyy-MM-dd'T'HH:mm:ssXXX");
+	info formatted_date;
+	for each  loopIndex in iterations
+	{
+		offset = (pageCounter - 1) * perPage;
+		crm_query = "select id, Created_Time from Accounts where Created_Time <= '" + formatted_date + "' order by Created_Time asc limit " + perPage + " offset " + offset;
+		queryMap = Map();
+		queryMap.put("select_query",crm_query);
+		resp = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v3/coql"
+			type :POST
+			parameters:queryMap.toString()
+			connection:"crm"
+		];
+		// 				info resp;
+		contacts = resp.get("data");
+		hasMoreRecords = resp.get("info").get("more_records");
+		if(contacts.isEmpty())
+		{
+			break;
+		}
+		for each  con in contacts
+		{
+			acc_id = con.get("id");
+			acc_Created_Time = con.get("Created_Time");
+			// 	info "Account Created TIme: " + acc_Created_Time;
+			numberOfDays = daysBetween(acc_Created_Time,now);
+			// 	info "Days Diff from Account Created Time to Now: " + numberOfDays;
+			if(numberOfDays > 179)
+			{
+				response = zoho.crm.getRelatedRecords("International_Transactions","Accounts",acc_id);
+				if(response.size() > 0)
+				{
+					// 					records = response.get("data");
+					for each  tran in response
+					{
+						tarn_created_time = tran.get("Created_Time");
+						tran_numberOfDays = daysBetween(tarn_created_time,now);
+						Ref_No = tran.get("Ref_No");
+						if(Ref_No == null)
+						{
+							continue;
+						}
+						break;
+					}
+					if(tran_numberOfDays > 179 || tran_numberOfDays == null)
+					{
+						status = "Dormant";
+					}
+					else
+					{
+						status = "Active";
+					}
+				}
+				else
+				{
+					status = "Dormant";
+				}
+				createList.add({"id":acc_id,"Customer_Status":status});
+			}
+			else
+			{
+				continue;
+			}
+		}
+		pageCounter = pageCounter + 1;
+		numRecords = numRecords + contacts.size();
+		// Bulk update in chunks of 100
+		iterations = "".leftpad(500).toList("");
+		for each  updateChunk in iterations
+		{
+			if(createList.isEmpty())
+			{
+				break;
+			}
+			subList = createList.subList(0,if(createList.size() > 100,100,createList.size()));
+			respUpdate = zoho.crm.bulkUpdate("Accounts",subList);
+			if(respUpdate != null)
+			{
+				for each  upd in respUpdate
+				{
+					if(upd.get("status") == "success")
+					{
+						updatedCount = updatedCount + 1;
+					}
+				}
+			}
+			createList.removeAll(subList);
+		}
+		if(!hasMoreRecords)
+		{
+			break;
+		}
+		info "Page Counter - " + pageCounter;
+		info "numRecords - " + numRecords;
+		info "Total Records Successfully Updated: " + updatedCount;
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Account Status Update Function Failed" + newline + "https://crm.kgkgroup.com/crm/org821143611/settings/schedules" + newline + e,"cliq");
+	info resp;
+}
+}

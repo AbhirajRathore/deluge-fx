@@ -1,0 +1,14 @@
+void automation.tag_retention_on_edit(Int inv_id,String barcode,String location,String deal_id)
+{
+crm_env = standalone.get_variable_value("config_api","crm_env","");
+try 
+{
+	excute_function = standalone.tag_retention_weborder(location,barcode,deal_id);
+	info excute_function;
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","tag_retention_check function failed." + newline + " Inventory - " + crm_env + "/tab/Products/" + inv_id + " " + newline + e,"cliq");
+}
+}

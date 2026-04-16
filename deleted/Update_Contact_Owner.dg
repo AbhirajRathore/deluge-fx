@@ -1,0 +1,39 @@
+void automation.Update_Contact_Owner(Int acc_id)
+{
+Accounts_details = zoho.crm.getRecordById("Accounts",acc_id);
+Owner = Accounts_details.get("Owner").get("id");
+Contacts = zoho.crm.getRelatedRecords("Contacts","Accounts",acc_id);
+if(Contacts.size() > 0)
+{
+	info Contacts.size() + " - Contacts Found!";
+	for each  contact in Contacts
+	{
+		con_id = contact.get("id");
+		update = zoho.crm.updateRecord("Contacts",con_id,{"Owner":Owner});
+		info "Contact update - " + update;
+	}
+}
+Associated_Contacts = zoho.crm.getRelatedRecords("Associated_Contacts11","Accounts",acc_id);
+if(Associated_Contacts.size() > 0)
+{
+	info Associated_Contacts.size() + " - Contacts Found!";
+	for each  x_contact in Associated_Contacts
+	{
+		x_id = x_contact.get("id");
+		x_details = zoho.crm.getRecordById("Member_Accounts_x_Contact",x_id);
+		Contacts = x_details.get("Contacts");
+		if(Contacts != null)
+		{
+			con_id = Contacts.get("id");
+			update = zoho.crm.updateRecord("Contacts",con_id,{"Owner":Owner});
+			info "Acssociated Contact update - " + update;
+		}
+	}
+}
+Parent_Account = Accounts_details.get("Parent_Account");
+if(Parent_Account != null)
+{
+	update_parent = zoho.crm.updateRecord("Accounts",Parent_Account.get("id"),{"Owner":Owner});
+	info "Update Parent - " + update_parent;
+}
+}

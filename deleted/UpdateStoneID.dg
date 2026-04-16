@@ -1,0 +1,16 @@
+string standalone.UpdateStoneID(String recordid)
+{
+resvp = zoho.crm.getRelatedRecords("Inventory3","Deals",recordid);
+StonelIst = List();
+if(resvp.size() > 0)
+{
+	for each  rec in resvp
+	{
+		StroneID = rec.get("Stones").getJSON("name");
+		StonelIst.add(StroneID);
+	}
+}
+mp = Map();
+mp.put("responsedata",StonelIst);
+return mp;
+}

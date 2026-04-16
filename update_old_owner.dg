@@ -1,0 +1,9 @@
+void automation.update_old_owner(Int lead_id)
+{
+leads = zoho.crm.getRecordById("Leads",lead_id);
+Owner = leads.get("Owner").get("name");
+info Owner;
+info leads.get("Owner").get("email");
+update = zoho.crm.updateRecord("Leads",lead_id,{"Original_Lead_Owner":Owner});
+info update;
+}

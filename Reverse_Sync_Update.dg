@@ -1,0 +1,753 @@
+string standalone.Reverse_Sync_Update(String Ref_Date,String CRM_Ref_Date,String location_code)
+{
+try 
+{
+	// 	info "CRM_Ref_Date: 09/MAR/26";
+	// 	info "Ref_Date: 09/MAR/2026";
+	// 	info "location_code: ANT";
+	// info "Reverse Sync Started";
+	// 	current_date = zoho.currentdate;
+	// 	info current_date;
+	// 	dd = zoho.currentdate.subDay(2).getDay();
+	iteration = "".leftPad(1).toList("");
+	// 	iteration = "".leftPad(current_date.subDay(1).getDay()).toList("");
+	for each  dt in iteration
+	{
+		//Ref_Date = current_date.toStartOfMonth().addDay(dd).toString("dd/MMM/yy").toUpperCase();
+		nivid_fromDate = Ref_Date;
+		//current_date.toStartOfMonth().addDay(dd).toString("dd/MMM/yyyy");
+		nivid_toDate = Ref_Date;
+		//current_date.toStartOfMonth().addDay(dd).toString("dd/MMM/yyyy");
+		// 		dd = dd + 1;
+		// 		info "CRM REF DATE - " + CRM_Ref_Date;
+		// 	info "NIVID From Date - " + nivid_fromDate;
+		// 	info "NIVID To Date - " + nivid_toDate;
+		userMap = Map();
+		all_users = zoho.crm.getRecords("users").get("users");
+		for each  u in all_users
+		{
+			if(u.get("Nivid_Sales_Person_Name") != null && u.get("status") == "active")
+			{
+				key = u.get("Nivid_Sales_Person_Name").toString().trim().toUpperCase();
+				userMap.put(key,u.get("id"));
+			}
+		}
+		loc_map_str = standalone.get_variable_value("config_locations","","");
+		// 	info loc_map_str;
+		loc_list = loc_map_str.toList();
+		json_hdr = {"Content-Type":"application/json"};
+		// add other locations if needed
+		for each  loc in loc_list
+		{
+			stone_loc = loc.get("location_code");
+			if(stone_loc != location_code)
+			{
+				continue;
+			}
+			try 
+			{
+				loc_name = loc.get("location_name");
+				nivid_token = loc.get("token");
+				base_api = standalone.get_variable_value("config_api",stone_loc,"url");
+				info "Processing Location: " + loc_name;
+				layout_consignment = standalone.get_variable_value("config_general","transaction_consignment_sale_layout_id","");
+				layout_local = standalone.get_variable_value("config_general","transaction_local_sale_layout_id","");
+				// 	==========================SALES MERGE START=======================		
+				if(loc_name != "India")
+				{
+					header = Map();
+					header.put("Authorization","Bearer " + nivid_token);
+					header.put("Content-Type","application/json");
+					view_name = "V_CRM_MERGE_SYNC";
+					criteria = " TO_DATE(SALE_DATE) BETWEEN TO_DATE('" + nivid_fromDate + "') AND TO_DATE('" + nivid_toDate + "')";
+					// 					info criteria;
+					url = base_api + "/CRM/dynamic-query-data" + "?Name=" + view_name + "&Criteria=" + encodeUrl(criteria);
+					// 					info url;
+					map_resp = invokeurl
+					[
+						url :url
+						type :GET
+						headers:header
+					];
+					// 										info map_resp;
+					if(map_resp != null)
+					{
+						map_resp = map_resp.get("Data");
+					}
+					// 				info map_resp;
+					oldToNew = Map();
+					if(map_resp != null && map_resp.size() > 0)
+					{
+						for each  mrow in map_resp
+						{
+							old_no = mrow.get("SALE_NO_OLD").toString().trim();
+							new_no = mrow.get("SALE_NO_NEW").toString().trim();
+							if(old_no != "" && new_no != "" && old_no != new_no)
+							{
+								oldToNew.put(old_no,new_no);
+							}
+						}
+					}
+					// 			info oldToNew;
+					info "Merge mappings: " + oldToNew.size();
+					// Apply updates per mapping (append Description and set Ref_No)
+					for each  oldRef in oldToNew.keys()
+					{
+						createlist = list();
+						newRef = oldToNew.get(oldRef);
+						// 1) Attempt to find a CRM transaction record for newRef (first match)
+						txnFindMap = Map();
+						txn_coql = "select id, Ref_No, Owner, Description from International_Transaction where ((Ref_No is not null and Ref_No like '%" + newRef + "%') and (Location = '" + loc_name + "')) and Entry_Type not like '%Not In NIVID%' limit 1";
+						txnFindMap.put("select_query",txn_coql);
+						txnResp = invokeurl
+						[
+							url :"https://www.zohoapis.com/crm/v3/coql"
+							type :POST
+							parameters:txnFindMap.toString()
+							connection:"crm"
+						];
+						// 				info txnResp;
+						if(txnResp == null || txnResp == "" || txnResp.get("data") == null || txnResp.get("data").size() == 0)
+						{
+							continue;
+						}
+						newTxnId = txnResp.get("data").get(0).get("id").toString();
+						// 				info "Found newTxnId=" + newTxnId + " for newRef=" + newRef;
+						nextToken = 0;
+						pageSize = 200;
+						iteration = "".leftpad(20).toList("");
+						for each  pg in iteration
+						{
+							oldTxnIds = list();
+							oldTxnIds_map = Map();
+							qmap = Map();
+							crm_coql = "select id, Stone.Product_Name, Transaction.Ref_No, Transaction.Description, Transaction.id, Transaction.Owner.id from Transaction_X_Inventory where (Transaction.Ref_No is not null and Transaction.Ref_No like '%" + oldRef + "%') and Transaction.Location = '" + loc_name + "' limit " + pageSize + " offset " + nextToken;
+							qmap.put("select_query",crm_coql);
+							crmResp = invokeurl
+							[
+								url :"https://www.zohoapis.com/crm/v3/coql"
+								type :POST
+								parameters:qmap.toString()
+								connection:"crm"
+							];
+							// 					info crmResp;
+							if(crmResp == null || crmResp == "" || crmResp.get("data") == null || crmResp.get("data").size() == 0)
+							{
+								break;
+							}
+							for each  irec in crmResp.get("data")
+							{
+								old_tarn_id = irec.get("Transaction.id").toString();
+								if(old_tarn_id != "" && !oldTxnIds.contains(old_tarn_id))
+								{
+									currentDesc = ifNull(irec.get("Transaction.Description"),"");
+									appendedDesc = currentDesc;
+									appendedDesc = "";
+									if(appendedDesc != "")
+									{
+										appendedDesc = appendedDesc + " | ";
+									}
+									appendedDesc = appendedDesc + "Merged_From_Old_Sale_No:" + oldRef + " To: " + newRef;
+									updateMap = Map();
+									updateMap.put("Description",appendedDesc);
+									updateMap.put("Entry_Type","Not In NIVID (Merged)");
+									oldTxnIds_map.put(old_tarn_id,updateMap);
+									oldTxnIds.add(old_tarn_id);
+								}
+								recordMap1 = {"id":irec.get("id").toString(),"Transaction":newTxnId,"Owner":irec.get("Transaction.Owner.id").toString()};
+								createlist.add(recordMap1);
+							}
+							for each  otid in oldTxnIds
+							{
+								map_tran = oldTxnIds_map.get(otid);
+								// 							info map_tran;
+								update = zoho.crm.updateRecord("International_Transaction",otid.toLong(),map_tran,{"trigger":{"workflow"}});
+							}
+							if(crmResp.containsKey("info") && crmResp.get("info").containsKey("more_records") && crmResp.get("info").get("more_records") == true)
+							{
+								nextToken = nextToken + pageSize;
+							}
+							else
+							{
+								break;
+							}
+						}
+						// end collect inventory
+						// 				info createlist;
+						// Bulk insert inventory lines
+						iterations = "".leftpad(59).toList("");
+						for each  i in iterations
+						{
+							if(createlist.isEmpty())
+							{
+								break;
+							}
+							if(createlist.size() > 100)
+							{
+								batch = createlist.subList(0,100);
+							}
+							else
+							{
+								batch = createlist;
+							}
+							bulkResp = zoho.crm.bulkUpdate("Transaction_X_Inventory",batch,{"trigger":{"workflow"}});
+							createlist.removeAll(batch);
+						}
+					}
+					// mapping loop
+					// 			info "Completed Merge Inserting records for " + loc_name;
+				}
+				// 	==========================SALES MERGE END=======================		
+				//  We'll group transactions by Ref_No to support multiple CRM rows with same Ref_No.
+				crm_ref_list = list();
+				// distinct ref nos
+				crm_ref_map = Map();
+				// ref -> list of maps {id, owner, description}
+				crm_ref_owner_map = Map();
+				// Ref_No → Owner ID
+				crm_ref_first_map = Map();
+				// ref -> first id
+				nextToken = 0;
+				pageSize = 200;
+				iterations = "".leftpad(50).toList("");
+				for each  i in iterations
+				{
+					queryMap = Map();
+					crm_query = "select id, Ref_No, Owner, Description from International_Transaction where ((Ref_No is not null and Ref_Date like '%" + CRM_Ref_Date + "%') and (Location = '" + loc_name + "' and Entry_Type not like '%Not In NIVID%')) limit " + pageSize + " offset " + nextToken;
+					queryMap.put("select_query",crm_query);
+					resp = invokeurl
+					[
+						url :"https://www.zohoapis.com/crm/v3/coql"
+						type :POST
+						parameters:queryMap.toString()
+						connection:"crm"
+					];
+					// 			info resp;
+					if(resp != "")
+					{
+						for each  record in resp.get("data")
+						{
+							ref = record.get("Ref_No");
+							if(ref != null && ref.contains("/"))
+							{
+								ref = ref.getSuffix("/").getPrefix("/");
+							}
+							refKey = ifNull(ref,"").toString();
+							recInfo = Map();
+							recInfo.put("id",record.get("id"));
+							if(!crm_ref_map.containsKey(refKey))
+							{
+								crm_ref_map.put(refKey,list());
+								crm_ref_list.add(refKey);
+								crm_ref_first_map.put(refKey,record.get("id"));
+							}
+							tmpList = crm_ref_map.get(refKey);
+							tmpList.add(recInfo);
+							crm_ref_map.put(refKey,tmpList);
+						}
+						if(resp.containsKey("info") && resp.get("info").containsKey("more_records") && resp.get("info").get("more_records") == true)
+						{
+							nextToken = nextToken + pageSize;
+						}
+						else
+						{
+							break;
+						}
+					}
+					else
+					{
+						break;
+					}
+				}
+				info "Count of CRM Sales (grouped by Ref_No):- " + crm_ref_list.size();
+				// ===== SINGLE NIVID API CALL (SELECT * ...) AND GROUP BY SALE_NO =====
+				header = Map();
+				header.put("Authorization","Bearer " + nivid_token);
+				header.put("Content-Type","application/json");
+				view_name = "v_crm_reverse_sync";
+				// 				criteria = "TO_DATE(MASTER_SALE_DATE) BETWEEN TO_DATE('" + nivid_fromDate + "') AND TO_DATE('" + nivid_toDate + "')  AND SALE_TYPE IN ('LOCAL SALE','CONSIGNMENT SALE','EXPORT') AND TRANSACTION_TYPE = 'RT' AND P_TYPE != 'MIX' and IS_RETURN = 'N' Order by MASTER_SALE_DATE, SALE_NO, BARCODE";
+				criteria = "TO_DATE(MASTER_SALE_DATE) BETWEEN TO_DATE('" + nivid_fromDate + "') AND TO_DATE('" + nivid_toDate + "')  AND SALE_TYPE IN ('LOCAL SALE','CONSIGNMENT SALE','EXPORT','DEEMED EXPORT','CONSIGNMENT EXPORT SALE') AND TRANSACTION_TYPE = 'RT' AND P_TYPE != 'MIX' Order by MASTER_SALE_DATE, SALE_NO, BARCODE";
+				// 				info criteria;
+				url = base_api + "/CRM/dynamic-query-data" + "?Name=" + view_name + "&Criteria=" + encodeUrl(criteria);
+				// 				info url;
+				sale_resp = invokeurl
+				[
+					url :url
+					type :GET
+					headers:header
+				];
+				if(sale_resp != null)
+				{
+					sale_resp = sale_resp.get("Data");
+				}
+				// Build map: SALE_NO -> list(rows)
+				nivid_sales_map = Map();
+				nivid_sale_list = list();
+				for each  sale_row in sale_resp
+				{
+					// 				if ( loc_name == "India" ) 
+					//                 {
+					// 					info sale_row;
+					//                 }
+					sale_no = sale_row.get("SALE_NO").toString();
+					if(!nivid_sales_map.containsKey(sale_no))
+					{
+						nivid_sales_map.put(sale_no,list());
+						nivid_sale_list.add(sale_no);
+					}
+					tmp = nivid_sales_map.get(sale_no);
+					tmp.add(sale_row);
+					nivid_sales_map.put(sale_no,tmp);
+				}
+				// 		info nivid_sales_map;
+				info "Count of NIVID Sales (grouped): " + nivid_sale_list.size();
+				// Compare lists
+				nivid_not_in_crm = list();
+				nivid_not_in_crm.addAll(nivid_sale_list);
+				nivid_not_in_crm.removeAll(crm_ref_list);
+				info "Sales in NIVID but not in CRM: " + nivid_not_in_crm.size();
+				crm_not_in_nivid = list();
+				crm_not_in_nivid.addAll(crm_ref_list);
+				crm_not_in_nivid.removeAll(nivid_sale_list);
+				info "Sales in CRM but not in NIVID: " + crm_not_in_nivid.size();
+				// Track sales created by this run to avoid re-checking them later
+				created_sales = list();
+				// ===== Insert missing Transactions (USE GROUPED nivid_sales_map ONLY) =====
+				if(nivid_not_in_crm.size() > 0)
+				{
+					accountMap = Map();
+					createlist = list();
+					for each  ref_no in nivid_not_in_crm
+					{
+						// IMPORTANT: use map only — NO per-sale NIVID call
+						sale_data = ifNull(nivid_sales_map.get(ref_no),list());
+						if(sale_data.isEmpty())
+						{
+							// sale not present in single NIVID response (perhaps filtered out) — log and skip
+							continue;
+						}
+						first = sale_data.get(0);
+						ledger = first.get("MASTER_LEDGER_NAME");
+						sale_person = first.get("MASTER_SALE_PERSON");
+						MASTER_SALE_DATE = first.get("MASTER_SALE_DATE").toString("dd/MMM/yy").toUpperCase();
+						if(sale_person == "" || !userMap.containsKey(sale_person))
+						{
+							sale_person = "ABHIRAJ";
+							//continue;
+						}
+						account_id = "";
+						description = "";
+						contact_id = "";
+						if(accountMap.containsKey(ledger))
+						{
+							account_id = accountMap.get(ledger);
+						}
+						else
+						{
+							acc_query_map = Map();
+							//info ledger;
+							ledger = trim(ledger).replaceAll("  "," ").replaceAll("  "," ").replaceAll("  "," ").replaceAll("  "," ");
+							ledger = ledger.replaceAll("'","''");
+							//ledger = ledger.replaceAll("\\s+"," ");
+							//info ledger;
+							acc_query = "select id from Accounts where Account_Name like '" + ledger + "' and Location = '" + loc_name + "' limit 1";
+							acc_query_map.put("select_query",acc_query);
+							acc_resp = invokeurl
+							[
+								url :"https://www.zohoapis.com/crm/v3/coql"
+								type :POST
+								parameters:acc_query_map.toString()
+								connection:"crm"
+							];
+							acc_data = acc_resp.get("data");
+							info acc_data;
+							if(acc_data.size() > 0)
+							{
+								account_id = acc_data.get(0).get("id");
+								contact_resp = zoho.crm.getRelatedRecords("Contacts","Accounts",account_id);
+								if(contact_resp.size() == 1)
+								{
+									contact_id = contact_resp.get(0).get("id");
+								}
+								else
+								{
+									contact_resp = zoho.crm.getRelatedRecords("Associated_Contacts11","Accounts",account_id);
+									if(contact_resp.size() == 1)
+									{
+										contact_id = contact_resp.get(0).get("Contacts").get("id");
+									}
+								}
+								accountMap.put(ledger,account_id);
+							}
+							else
+							{
+								description = "Account Not Found for Ledger - " + ledger;
+								//info description;
+								//continue;
+							}
+						}
+						txn = Map();
+						txn.put("Description",description);
+						txn.put("Entry_Type","Back Filled");
+						txn.put("Account_Name",account_id);
+						if(contact_id != "")
+						{
+							txn.put("Contact_Name",contact_id);
+						}
+						txn.put("Owner",userMap.get(sale_person));
+						txn.put("Location",loc_name);
+						txn.put("Terms",first.get("MASTER_TERM"));
+						txn.put("Lead_Source","Regular Client");
+						txn.put("remark",first.get("MASTER_REMARK"));
+						txn.put("Bank_Rate",first.get("EXCHANGE_RATE"));
+						txn.put("Ref_No",ref_no);
+						txn.put("Ref_Date",MASTER_SALE_DATE);
+						txn.put("Sale_Date",MASTER_SALE_DATE.toDate("dd/MMM/yy"));
+						txn.put("Currency_Type",first.get("MCURRENCY"));
+						txn.put("Payment_Mode",first.get("PAYMENT_MODE"));
+						txn.put("Brokerage",first.get("BROKRAGE"));
+						sale_type = first.get("SALE_TYPE");
+						if(sale_type == "LOCAL SALE")
+						{
+							txn.put("Layout",layout_local);
+							txn.put("Sale_Type",first.get("P_TYPE"));
+						}
+						else
+						{
+							txn.put("Layout",layout_consignment);
+							txn.put("Client","CL");
+							txn.put("Inv_Type",first.get("INV_TYPE"));
+							txn.put("Consignment_Type",first.get("P_TYPE"));
+							txn.put("Invoice_Type",first.get("TRANSACTION_TYPE"));
+							if(sale_type == "CONSIGNMENT SALE")
+							{
+								txn.put("Transaction_Category","Consignment Sale");
+							}
+							else if(sale_type == "DEEMED EXPORT")
+							{
+								txn.put("Transaction_Category","Deemed Export Sale");
+							}
+							else if(sale_type == "CONSIGNMENT EXPORT SALE")
+							{
+								txn.put("Transaction_Category","Consignment Export Sale");
+							}
+							else
+							{
+								txn.put("Transaction_Category","Export Sale");
+							}
+						}
+						info txn;
+						txn_create = zoho.crm.createRecord("International_Transaction",txn,{"trigger":{"workflow"}});
+						txn_id = txn_create.get("id");
+						// record that this sale was created by this run
+						created_sales.add(ref_no);
+						// create inventory lines for all barcodes in sale_data (from map)
+						for each  stone in sale_data
+						{
+							barcode = stone.get("BARCODE");
+							stone_query_map = Map();
+							stone_query = "select id, cut, department_name,fluorescence,lab,polish,shape,carat,out_per_carat from Products where location = '" + stone_loc + "' and Product_Name = '" + barcode + "' limit 1";
+							stone_query_map.put("select_query",stone_query);
+							prod_resp = invokeurl
+							[
+								url :"https://www.zohoapis.com/crm/v3/coql"
+								type :POST
+								parameters:stone_query_map.toString()
+								connection:"crm"
+							];
+							prod = prod_resp.get("data");
+							if(prod != null && prod.size() > 0)
+							{
+								for each  p in prod
+								{
+									recordMap = {"Stone":p.get("id"),"Transaction":txn_id,"Owner":userMap.get(sale_person),"Carat":ifNull(p.get("carat"),0.0),"Clarity":ifNull(stone.get("CLARITY_NAME"),""),"Color":ifNull(stone.get("COLOR_NAME"),""),"CUT":p.get("cut"),"Flow":ifNull(p.get("fluorescence"),""),"LAB":ifNull(p.get("lab"),""),"list":ifNull(stone.get("OUTLIST"),0.0),"List_Total":ifNull(stone.get("OUTTOTALLIST"),0.0),"LSP":stone.get("LSP"),"MSP":ifNull(stone.get("OUT_PER"),0.0),"MSP_Total":ifNull(stone.get("MSPTOTAL"),0.0),"Polish":p.get("polish"),"Shape":p.get("shape"),"Barcode":barcode,"Rate":ifNull(p.get("out_per_carat").toString(),"")};
+									createlist.add(recordMap);
+								}
+							}
+						}
+					}
+					// end for each ref_no
+					// Bulk insert inventory lines
+					iterations = "".leftpad(59).toList("");
+					for each  i in iterations
+					{
+						if(createlist.isEmpty())
+						{
+							break;
+						}
+						if(createlist.size() > 100)
+						{
+							batch = createlist.subList(0,100);
+						}
+						else
+						{
+							batch = createlist;
+						}
+						bulkResp = zoho.crm.bulkCreate("Transaction_X_Inventory",batch,{"trigger":{"workflow"}});
+						createlist.removeAll(batch);
+					}
+					info "Completed Inserting records for " + loc_name;
+				}
+				// end inserts
+				// ===== Delete CRM records missing in NIVID =====
+				if(crm_not_in_nivid.size() > 0)
+				{
+					// 			info crm_not_in_nivid;
+					for each  missing_ref in crm_not_in_nivid
+					{
+						if(crm_ref_map.containsKey(missing_ref))
+						{
+							id = crm_ref_map.get(missing_ref).get(0).get("id");
+							// 					info id;
+							deleteRecordMap = Map();
+							deleteRecordMap.put("module","International_Transaction");
+							deleteRecordMap.put("id",id);
+							deleteResp = zoho.crm.invokeConnector("crm.delete",deleteRecordMap);
+							// 					info deleteResp;
+						}
+					}
+				}
+				// ===== Refresh CRM Ref_No after insert (unchanged COQL but we'll skip created_sales later) =====
+				crm_ref_list.clear();
+				crm_ref_map.clear();
+				nextToken = 0;
+				pageSize = 200;
+				iterations = "".leftpad(50).toList("");
+				for each  i in iterations
+				{
+					queryMap = Map();
+					crm_query = "select id, Ref_No, Owner.id, Description from International_Transaction where ((Ref_No is not null and Ref_Date like '%" + CRM_Ref_Date + "%') and (Location = '" + loc_name + "' and Entry_Type not like '%Not In NIVID%')) limit " + pageSize + " offset " + nextToken;
+					queryMap.put("select_query",crm_query);
+					resp = invokeurl
+					[
+						url :"https://www.zohoapis.com/crm/v3/coql"
+						type :POST
+						parameters:queryMap.toString()
+						connection:"crm"
+					];
+					if(resp != "")
+					{
+						for each  record in resp.get("data")
+						{
+							ref = record.get("Ref_No");
+							if(ref != null && ref.contains("/"))
+							{
+								ref = ref.getSuffix("/").getPrefix("/");
+							}
+							crm_ref_list.add(ref.toString());
+							crm_ref_map.put(ref,record.get("id"));
+							// 					info crm_ref_map;
+							crm_ref_owner_map.put(ref,record.get("Owner.id"));
+						}
+						if(resp.containsKey("info") && resp.get("info").containsKey("more_records") && resp.get("info").get("more_records") == true)
+						{
+							nextToken = nextToken + pageSize;
+						}
+						else
+						{
+							break;
+						}
+					}
+					else
+					{
+						break;
+					}
+				}
+				info "CRM List refreshed after inserts: " + crm_ref_list.size();
+				// ===== Update Stones from CRM (common sales) =====
+				// Build common_sales using the single nivid_sale_list and crm_ref_list
+				common_sales = list();
+				for each  ref in crm_ref_list
+				{
+					// skip sales that were created by this run (we don't need to re-check those)
+					if(created_sales.contains(ref))
+					{
+						continue;
+					}
+					if(nivid_sale_list.contains(ref))
+					{
+						common_sales.add(ref);
+					}
+				}
+				for each  ref_no in common_sales
+				{
+					// Use grouped data from nivid_sales_map to get NIVID stone barcodes — NO per-sale NIVID API calls
+					nivid_rows_for_sale = ifNull(nivid_sales_map.get(ref_no),list());
+					if(nivid_rows_for_sale.isEmpty())
+					{
+						continue;
+					}
+					nivid_stones = list();
+					for each  nr in nivid_rows_for_sale
+					{
+						if(nr.get("BARCODE") != null)
+						{
+							nivid_stones.add(nr.get("BARCODE").toString());
+						}
+					}
+					// Fetch CRM Stones
+					crm_stones = list();
+					crm_stone_map = Map();
+					crm_txn_id = crm_ref_map.get(ref_no);
+					// 			info "SALE ID: "+crm_txn_id+"FOR REF NO: "+ref_no;
+					owner_id = crm_ref_owner_map.get(ref_no);
+					pageSize = 200;
+					nextToken = 0;
+					iterations = "".leftpad(50).toList("");
+					for each  i in iterations
+					{
+						queryMap = Map();
+						crm_query = "select Stone.Product_Name, Stone.id from Transaction_X_Inventory where ((Transaction.Ref_No = '" + ref_no + "') and (Stone.Product_Name is not null)) and (Transaction.Location = '" + loc_name + "') limit " + pageSize + " offset " + nextToken;
+						queryMap.put("select_query",crm_query);
+						crm_stones_resp = invokeurl
+						[
+							url :"https://www.zohoapis.com/crm/v3/coql"
+							type :POST
+							parameters:queryMap.toString()
+							connection:"crm"
+						];
+						// 				info crm_stones_resp ;
+						// 				info crm_stones_resp.get("data").size();
+						if(crm_stones_resp != null && crm_stones_resp != "")
+						{
+							for each  st in crm_stones_resp.get("data")
+							{
+								barcode = st.get("Stone.Product_Name");
+								rec_id = st.get("id");
+								crm_stones.add(barcode);
+								crm_stone_map.put(barcode,rec_id);
+							}
+							if(crm_stones_resp.containsKey("info") && crm_stones_resp.get("info").containsKey("more_records") && crm_stones_resp.get("info").get("more_records") == true)
+							{
+								nextToken = nextToken + pageSize;
+							}
+							else
+							{
+								break;
+							}
+						}
+						else
+						{
+							break;
+						}
+					}
+					// Compare stones
+					createlist = list();
+					nivid_missing = list();
+					nivid_missing.addAll(nivid_stones);
+					nivid_missing.removeAll(crm_stones);
+					crm_extra = list();
+					crm_extra.addAll(crm_stones);
+					crm_extra.removeAll(nivid_stones);
+					// Add Stones Which are not in CRM
+					if(nivid_missing.size() > 0)
+					{
+						for each  barcode in nivid_missing
+						{
+							stone_query_map = Map();
+							stone_query = "select id, cut, department_name,fluorescence,lab,polish,shape,carat,clarity,color,list,list_total,lsp,msp_per,out_per_carat,msp_total from Products where location = '" + stone_loc + "' and Product_Name = '" + barcode + "' limit 1";
+							stone_query_map.put("select_query",stone_query);
+							prod_resp = invokeurl
+							[
+								url :"https://www.zohoapis.com/crm/v3/coql"
+								type :POST
+								parameters:stone_query_map.toString()
+								connection:"crm"
+							];
+							prod = prod_resp.get("data");
+							if(prod != null && prod.size() > 0)
+							{
+								for each  p in prod
+								{
+									recordMap = {"Stone":p.get("id"),"Transaction":crm_txn_id,"Owner":owner_id,"Carat":ifNull(p.get("carat"),0.0),"Clarity":ifNull(p.get("clarity"),""),"Color":ifNull(p.get("color"),""),"CUT":p.get("cut"),"Flow":ifNull(p.get("fluorescence"),""),"LAB":ifNull(p.get("lab"),""),"list":ifNull(p.get("list"),0.0),"List_Total":ifNull(p.get("list_total"),0.0),"LSP":ifNull(p.get("lsp"),0.0),"MSP":ifNull(p.get("msp"),0.0),"MSP_Total":ifNull(p.get("msp_total"),0.0),"Polish":p.get("polish"),"Shape":p.get("shape"),"Barcode":barcode,"Rate":ifNull(p.get("out_per_carat").toString(),"")};
+									createlist.add(recordMap);
+								}
+							}
+						}
+						// 				info createlist;
+						// Bulk insert inventory lines
+						iterations = "".leftpad(59).toList("");
+						for each  i in iterations
+						{
+							if(createlist.isEmpty())
+							{
+								break;
+							}
+							if(createlist.size() > 100)
+							{
+								batch = createlist.subList(0,100);
+							}
+							else
+							{
+								batch = createlist;
+							}
+							bulkResp = zoho.crm.bulkCreate("Transaction_X_Inventory",batch,{"trigger":{"workflow"}});
+							// 					info bulkResp;
+							createlist.removeAll(batch);
+						}
+					}
+					// Delete Stones which are not in NIVID
+					if(crm_extra.size() > 0)
+					{
+						deletelist = list();
+						for each  stone in crm_extra
+						{
+							if(crm_stone_map.containsKey(stone))
+							{
+								rec_id = crm_stone_map.get(stone);
+								deletelist.add(rec_id);
+							}
+						}
+						// 				info deletelist;
+						// Bulk delete in batches of 100
+						iterations = "".leftpad(59).toList("");
+						for each  i in iterations
+						{
+							if(deletelist.isEmpty())
+							{
+								break;
+							}
+							if(deletelist.size() > 100)
+							{
+								batch = deletelist.subList(0,100);
+							}
+							else
+							{
+								batch = deletelist;
+							}
+							param = Map();
+							param.put("ids",batch);
+							deleteResp = invokeurl
+							[
+								url :"https://www.zohoapis.com/crm/v4/Transaction_X_Inventory/actions/mass_delete"
+								type :POST
+								body:param.toString()
+								connection:"currency_connection"
+							];
+							// 							info batch;
+							info "Deleted batch of " + batch.size() + " records.";
+							deletelist.removeAll(batch);
+						}
+					}
+				}
+				// end common_sales loop
+			}
+			catch (e)
+			{
+				newline = hextoText("0A");
+				resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Reverse Sync Failed - " + loc_name + " - " + Ref_Date + newline + e,"cliq");
+				info resp;
+				continue;
+			}
+		}
+		// end location loop
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Reverse Sync Failed - " + loc_name + " - " + Ref_Date + newline + e,"cliq");
+	info resp;
+}
+return "";
+}

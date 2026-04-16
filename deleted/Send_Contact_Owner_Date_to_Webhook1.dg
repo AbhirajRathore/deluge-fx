@@ -1,0 +1,60 @@
+void automation.Send_Contact_Owner_Date_to_Webhook1(Int lid)
+{
+Lead = zoho.crm.getRecordById("Leads",lid);
+// info 
+user_id = Lead.get("user_id");
+if(user_id == null)
+{
+	return;
+}
+kafka_token = standalone.get_variable_value("config_api","kafka","token");
+kafka_url = standalone.get_variable_value("config_api","kafka","url");
+owner_id = Lead.get("Owner").get("id");
+info "Owner ID - " + owner_id;
+Owner_details = zoho.crm.getRecordById("users",owner_id);
+// info Owner_details;
+Markup = Lead.getJson("Markup");
+users = Owner_details.get("users");
+for each  user in users
+{
+	Owner_Phone = user.get("phone");
+	Owner_full_name = user.get("full_name");
+	Owner_email = user.get("email");
+	Address = user.get("street") + ", " + user.get("city") + ", " + user.get("state") + ", " + user.get("zip") + ", " + user.get("country") + ".";
+	role = user.get("role").get("name");
+	user_location = user.get("Location");
+}
+mp = Map();
+mp.put("customer_id",user_id);
+mp.put("lead_id",lid.toString());
+mp.put("kam_id",owner_id);
+mp.put("kam_name",Owner_full_name);
+mp.put("kam_phone",Owner_Phone);
+mp.put("kam_email",Owner_email);
+mp.put("kam_address",Address.remove("null"));
+mp.put("kam_post",role);
+mp.put("markup",Markup);
+loc_map_str = standalone.get_variable_value("config_locations","","");
+loc_list = loc_map_str.toList();
+for each  loc in loc_list
+{
+	loc_code = loc.get("location_code");
+	if(loc_code == user_location)
+	{
+		location_name = loc.get("location_name");
+	}
+}
+mp.put("location",location_name);
+info mp;
+header = Map();
+header.put("Authorization","Bearer " + kafka_token);
+header.put("Content-Type","application/json");
+response = invokeurl
+[
+	url :kafka_url + "/api/crm/kam"
+	type :POST
+	parameters:mp.toString()
+	headers:header
+];
+info response;
+}

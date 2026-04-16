@@ -1,0 +1,88 @@
+map validation_rule.legal_status_by_country_validation(String crmAPIRequest)
+{
+// Parse the incoming JSON string into a map
+entityMap = crmAPIRequest.toMap().get("record");
+// Get country and legal status field values
+country = entityMap.get("country");
+legal_status = entityMap.get("Legal_Status_Of_Organisation");
+response = Map();
+// Create response map
+// Only validate if both fields are not null
+if(country != null && legal_status != null)
+{
+	valid_status_map = Map();
+	// For each country, create a valid list of allowed statuses
+	india_list = list();
+	india_list.add("Private Limited Co");
+	india_list.add("Trust");
+	india_list.add("Sole Proprietorship");
+	india_list.add("Partnership firm");
+	india_list.add("HUF");
+	india_list.add("Others");
+	usa_list = list();
+	usa_list.add("INC");
+	usa_list.add("Limited Liability Company");
+	usa_list.add("Others");
+	uae_list = list();
+	uae_list.add("DMCC/FZCO");
+	uae_list.add("Private Limited Co");
+	uae_list.add("Trust");
+	uae_list.add("Others");
+	uk_list = list();
+	uk_list.add("Trust");
+	uk_list.add("Partnership firm");
+	uk_list.add("Private Limited Co (UK)");
+	uk_list.add("Others");
+	israel_list = list();
+	israel_list.add("Private Limited Company/Partnership/Sole Propertership");
+	israel_list.add("Others");
+	cayman_list = list();
+	cayman_list.add("Collective Investment Scheme");
+	cayman_list.add("Others");
+	hk_list = list();
+	hk_list.add("Limited Company");
+	hk_list.add("Sole Propertership");
+	hk_list.add("Others");
+	belgium_list = list();
+	belgium_list.add("BV");
+	belgium_list.add("Others");
+	// Fallback option — broader list allowed for "Other Countries"
+	other_list = list();
+	other_list.add("Private Limited Co");
+	other_list.add("Trust");
+	other_list.add("Sole Proprietorship");
+	other_list.add("Partnership firm");
+	other_list.add("HUF");
+	other_list.add("Others");
+	other_list.add("INC");
+	other_list.add("Limited Liability Company");
+	other_list.add("DMCC/FZCO");
+	other_list.add("Private Limited Co (UK)");
+	other_list.add("Private Limited Company/Partnership/Sole Propertership");
+	other_list.add("Collective Investment Scheme");
+	other_list.add("Limited Company");
+	other_list.add("Sole Propertership");
+	other_list.add("BV");
+	valid_status_map.put("India",india_list);
+	valid_status_map.put("USA",usa_list);
+	valid_status_map.put("UAE",uae_list);
+	valid_status_map.put("UK",uk_list);
+	valid_status_map.put("Israel",israel_list);
+	valid_status_map.put("Cayman Island",cayman_list);
+	valid_status_map.put("Hong Kong",hk_list);
+	valid_status_map.put("Belgium",belgium_list);
+	valid_status_map.put("Other Countries",other_list);
+	// Get the valid list for the current country
+	allowed_list = valid_status_map.get(country);
+	// If allowed list is defined and selected value not in list → error
+	if(allowed_list != null && !allowed_list.contains(legal_status))
+	{
+		response.put("status","error");
+		response.put("message","Selected Legal Status is not valid for the chosen Country.");
+		return response;
+	}
+}
+// If everything is valid
+response.put("status","success");
+return response;
+}

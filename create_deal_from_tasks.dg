@@ -1,0 +1,158 @@
+string button.create_deal_from_tasks(String tasks_id)
+{
+crm_env_url = standalone.get_variable_value("config_api","crm_env","url");
+taskDetails = zoho.crm.getRecordById("Tasks",tasks_id);
+Owner = taskDetails.get("Owner").get("id");
+getUsersdata = zoho.crm.getRecordById("users",Owner);
+users = getUsersdata.get("users");
+for each  user in users
+{
+	Location = user.get("Location");
+	if(Location == "IND")
+	{
+		Location = "India";
+	}
+	else if(Location == "DXB")
+	{
+		Location = "Dubai";
+	}
+	else if(Location == "ANT")
+	{
+		Location = "Antwerp";
+	}
+	else
+	{
+		Location = "";
+	}
+	NIVID_Employee_Code = user.get("NIVID_Employee_Code");
+	Nivid_Sales_Person_Name = user.get("Nivid_Sales_Person_Name");
+	if(Nivid_Sales_Person_Name == null)
+	{
+		return "Sales Person Name can not be Empty";
+	}
+}
+Description = taskDetails.get("Description");
+if(Description == null)
+{
+	return "No Stones Found!!";
+}
+stones_list = Description.replaceAll("\n",",").toList();
+if(stones_list.size() > 0)
+{
+	Who_Id = taskDetails.get("Who_Id");
+	if(Who_Id != null)
+	{
+		contact_id = Who_Id.get("id");
+		Contact_Name = Who_Id.get("name");
+		mp = Map();
+		What_Id = taskDetails.get("What_Id");
+		if(What_Id != null && taskDetails.get("$se_module") == "Accounts")
+		{
+			Account_id = What_Id.get("id");
+			Account_name = What_Id.get("name");
+			mp.put("Deal_Name",Account_name + " - " + Contact_Name);
+			mp.put("Account_Name",Account_id);
+		}
+		else
+		{
+			mp.put("Deal_Name",Contact_Name + " - Deal Created from Tasks");
+		}
+		mp.put("Owner",Owner);
+		mp.put("Contact_Name",contact_id);
+		mp.put("Pipeline","Local Sales Pipeline");
+		mp.put("Stage","Requirements Gathering");
+		mp.put("Lead_Source","Pre-KYC Client");
+		mp.put("Location",Location);
+		create_deal = zoho.crm.createRecord("Deals",mp);
+		deal_id = create_deal.get("id");
+		info deal_id;
+		createList = List();
+		for each  stone in stones_list
+		{
+			search_Stone = zoho.crm.searchRecords("Products",{"Product_Name:equals:" + stone});
+			if(search_Stone.size() > 0)
+			{
+				for each  deal_Stone in search_Stone
+				{
+					Product_id = deal_Stone.get("id");
+					MSP_Total = ifNull(deal_Stone.get("msp_total"),0.0).toString();
+					list_total = ifNull(deal_Stone.get("list_total"),0.0).toString();
+					Carat = ifNull(deal_Stone.get("carat"),0.0);
+					msp_per = abs(ifNull(deal_Stone.get("msp_per"),0.0));
+					MSP = -1 * msp_per;
+					list1 = ifNull(deal_Stone.get("list"),0.0);
+					LSP = ifNull(deal_Stone.get("lsp"),0.0).toString();
+					LAB = ifNull(deal_Stone.get("lab"),"");
+					CUT = ifNull(deal_Stone.get("cut"),"");
+					Color = ifNull(deal_Stone.get("color"),"").toString();
+					Clarity = ifNull(deal_Stone.get("clarity"),"");
+					DEPT = ifNull(deal_Stone.get("department_name"),"");
+					Flow = ifNull(deal_Stone.get("fluorescence"),"");
+					Shape = ifNull(deal_Stone.get("shape"),"");
+					Symmetry = ifNull(deal_Stone.get("symmetry"),"");
+					Tran_Status = ifNull(deal_Stone.get("tran_status"),"");
+					recordMap1 = {"Stones":Product_id,"deal_stones":deal_id,"Carat":Carat,"list":list1,"MSP":MSP,"MSP_Total":MSP_Total,"List_Total":list_total,"Owner":Owner,"LSP":LSP,"LAB":LAB,"CUT":CUT,"Color":Color,"Clarity":Clarity,"DEPT":DEPT,"Flow":Shape,"Symmetry":Symmetry,"Tran_Status":Tran_Status,"Location":Location};
+					createList.add(recordMap1);
+				}
+			}
+		}
+		info "Main Size - " + createList.size();
+		// 		for less than 100 records ...................
+		if(createList.size() <= 100 && createList.size() > 0)
+		{
+			info "Create List is less than equals 100";
+			bulk_create = zoho.crm.bulkCreate("Deals_X_Inventory",createList);
+			for each  bulk in bulk_create
+			{
+				info bulk.get("code");
+				break;
+			}
+		}
+		else if(createList.size() > 100)
+		{
+			stone_iterations = "".leftpad(20 - 1).toList("");
+			for each  stone_iteration in stone_iterations
+			{
+				info createList.size();
+				if(createList.size() > 100)
+				{
+					info "Create List is greater than 100";
+					newListVar = createList.subList(0,100);
+					bulk_create = zoho.crm.bulkCreate("Deals_X_Inventory",newListVar);
+					for each  bulk in bulk_create
+					{
+						info bulk.get("code");
+						break;
+					}
+					createList.removeAll(newListVar);
+				}
+				else
+				{
+					info "Create List is less than equals 100";
+					bulk_create = zoho.crm.bulkCreate("Deals_X_Inventory",createList);
+					for each  bulk in bulk_create
+					{
+						info bulk.get("code");
+						break;
+					}
+					break;
+				}
+			}
+		}
+		update_tasks_mp = Map();
+		update_tasks_mp.put("What_Id",deal_id);
+		update_tasks_mp.put("$se_module","Deals");
+		update_tasks = zoho.crm.updateRecord("Tasks",tasks_id,update_tasks_mp);
+		openUrl(crm_env_url + "/tab/Potentials/" + deal_id,"new window");
+		return "Deal Created";
+	}
+	else
+	{
+		return "No Contact Found!";
+	}
+}
+else
+{
+	return "No Stones Found!!";
+}
+}

@@ -1,0 +1,16 @@
+string standalone.add_notes_from_subfrom(String Parent_Id,String Note_Title,String Note_Content,String se_module)
+{
+note_map = Map();
+note_map.put("Note_Title",Note_Title);
+note_map.put("Note_Content",Note_Content);
+note_map.put("Parent_Id",Parent_Id);
+note_map.put("$se_module",se_module);
+note_create_response = zoho.crm.createRecord("Notes",note_map);
+info note_create_response;
+// if (note_create_response.get("code") == "SUCCESS") {
+//     info "Note created successfully!";
+// } else {
+//     info "Error creating note: " + note_create_response.get("message");
+// }
+return "";
+}

@@ -1,0 +1,59 @@
+void automation.bulk_update_old_owner(String lead_id)
+{
+Lead = zoho.crm.getRecordById("Leads",lead_id);
+Owner = Lead.get("Owner").get("id");
+resp = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v7/Leads/" + lead_id + "/__timeline?sort_by=audited_time&sort_order=asc"
+	type :GET
+	connection:"crm"
+];
+info resp;
+fieldvalue = "";
+user_id = "";
+timeline = resp.get("__timeline");
+for each  log in timeline
+{
+	if(log.get("automation_details") != null)
+	{
+		if(log.get("automation_details").get("name") == "assign_salesperson_based_on_referral_name_New_Lead" && log.get("action") == "updated")
+		{
+			field_history = log.get("field_history");
+			for each  field in field_history
+			{
+				if(field.get("api_name") == "Owner")
+				{
+					fieldvalue = field.get("_value").get("new");
+				}
+			}
+		}
+	}
+}
+info fieldvalue;
+if(fieldvalue != "")
+{
+	info fieldvalue;
+	All_users = zoho.crm.getRecords("users");
+	users_data = All_users.get("users");
+	for each  user in users_data
+	{
+		if(user.get("full_name") == fieldvalue && user.get("status").contains("active"))
+		{
+			user_id = user.get("id");
+			break;
+		}
+	}
+}
+if(user_id != "")
+{
+	update = zoho.crm.updateRecord("Leads",lead_id,{"Old_owner":user_id});
+	info "Owner found";
+	info update;
+}
+else
+{
+	update = zoho.crm.updateRecord("Leads",lead_id,{"Old_owner":Owner});
+	info "Old Owner not found, updated Current Owner as Old Owner";
+	info update;
+}
+}

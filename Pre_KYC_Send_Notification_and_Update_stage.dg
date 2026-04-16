@@ -1,0 +1,176 @@
+void automation.Pre_KYC_Send_Notification_and_Update_stage(String lead_id)
+{
+try 
+{
+	medusa_token = standalone.get_variable_value("config_api","medusa","token");
+	medusa_url = standalone.get_variable_value("config_api","medusa","url");
+	crm_env_url = standalone.get_variable_value("config_api","crm_env","url");
+	onesignal_url = standalone.get_variable_value("config_api","onesignal","url");
+	onesignal_token = standalone.get_variable_value("config_api","onesignal","token");
+	new_Stage_update_date = zoho.currenttime.addHour(12).addMinutes(30).toString("yyyy-MM-dd'T'HH:mm:ss'+05:30'");
+	info new_Stage_update_date;
+	// 
+	// 	Get List Key
+	// 	===========================
+	// 	response = invokeUrl [
+	// 	url: "https://marketingautomation.zoho.com/api/v1/getmailinglists"
+	// 	type: GET
+	// 	connection: "zoho_ma"
+	// 	];
+	// 	info response;
+	// 	Get Journey Key
+	// 	============================
+	// 	response = invokeUrl [
+	// 	url: "https://marketingautomation.zoho.com/api/v1/journeys"
+	// 	type: GET
+	// 	connection: "zoho_ma"
+	// 	];
+	// 	info response;
+	// 	============================
+	send_notification = false;
+	whatsapp_notification = false;
+	template_id = "";
+	triggerkey = "";
+	// 	new_Stage_update_date = zoho.currenttime.toString("yyyy-MM-dd'T'HH:mm:ss-08:00");
+	info new_Stage_update_date;
+	lead_details = zoho.crm.getRecordById("Leads",lead_id);
+	First_Name = lead_details.get("First_Name");
+	if(First_Name == null)
+	{
+		First_Name = lead_details.get("Last_Name");
+	}
+	Email = lead_details.get("Email");
+	Phone = lead_details.get("Phone");
+	user_id = lead_details.get("user_id");
+	info "Customer Website ID - " + user_id;
+	Pre_KYC_Stage = lead_details.get("Pre_KYC_Stage");
+	if(Pre_KYC_Stage == "Stage 1")
+	{
+		whatsapp_notification = true;
+		send_notification = true;
+		template_id = "57d49838-ba63-4b87-bc12-687810f47e56";
+		triggerkey = "3ze782272e51ccc30a86b3eaab703ca991a32a075f3cc967da01e7e39d4f2d17e9";
+		journey_id = "3ze782272e51ccc30a86b3eaab703ca991c028d5d300e1feab510db9175e0415f4";
+		mp = Map();
+		mp.put("Pre_KYC_Stage","Stage 2");
+		mp.put("Stage_Update_Date",new_Stage_update_date);
+		update = zoho.crm.updateRecord("Leads",lead_id,mp,{"trigger":{"workflow"}});
+		info update;
+	}
+	else if(Pre_KYC_Stage == "Stage 2")
+	{
+		send_notification = true;
+		template_id = "23b9df55-5461-49ca-bb50-5638a5d48828";
+		mp = Map();
+		mp.put("Pre_KYC_Stage","Stage 3");
+		mp.put("Stage_Update_Date",new_Stage_update_date);
+		update = zoho.crm.updateRecord("Leads",lead_id,mp,{"trigger":{"workflow"}});
+		info update;
+	}
+	else if(Pre_KYC_Stage == "Stage 3")
+	{
+		whatsapp_notification = true;
+		triggerkey = "3ze782272e51ccc30a86b3eaab703ca991c9ce1d93512ab5d2d7e08cb133e8e99c";
+		journey_id = "3ze782272e51ccc30a86b3eaab703ca991eab61e5d0b154bd66cd8d2659c9a765f";
+		mp = Map();
+		mp.put("Pre_KYC_Stage","Stage 4");
+		mp.put("Stage_Update_Date",new_Stage_update_date);
+		update = zoho.crm.updateRecord("Leads",lead_id,mp,{"trigger":{"workflow"}});
+		info update;
+	}
+	else if(Pre_KYC_Stage == "Stage 4")
+	{
+		whatsapp_notification = true;
+		send_notification = true;
+		triggerkey = "3ze782272e51ccc30a86b3eaab703ca9919daba050c4af86d5574fa1afbe4c29db";
+		journey_id = "3ze782272e51ccc30a86b3eaab703ca991def740827fa47786f309c4992db9275c";
+		template_id = "3e59381d-3a35-4988-ae86-3c242e45e9a1";
+		mp = Map();
+		mp.put("Pre_KYC_Stage","Stage 5");
+		mp.put("Stage_Update_Date",new_Stage_update_date);
+		update = zoho.crm.updateRecord("Leads",lead_id,mp,{"trigger":{"workflow"}});
+		info update;
+	}
+	// 		=========================================
+	// 		Send Notification..............................
+	// 		=========================================
+	if(user_id != null && send_notification == true)
+	{
+		info "Send Notification";
+		header = Map();
+		header.put("Cookie","connect.sid=s%3AFyrTJAfPSpmydaavTlPrHQcyTLZ4KoBP.CCNvHxW%2BsvlFRXP%2B8VphooM1mr4yApfdkSzIEYoupgc; connect.sid=s%3AdEHXM0aIQzls7AIRXIjQUchePTbIhSaw.sf8M86J4bSzC9N%2Bzj%2F%2F03s%2FreDcGCXR9%2Bzx5pwnOFqA");
+		header.put("Authorization","Bearer " + medusa_token);
+		param = Map();
+		param.put("customerId",user_id);
+		get_device_id = invokeurl
+		[
+			url :medusa_url + "public/customer-device-uuid"
+			type :GET
+			parameters:param
+			headers:header
+		];
+		info get_device_id;
+		data = get_device_id.get("data");
+		info "Device ID - " + data;
+		device_list = list();
+		device_list.add(data);
+		if(data != null)
+		{
+			headers_mp = Map();
+			headers_mp.put("Authorization","Basic " + onesignal_token);
+			headers_mp.put("accept","application/json");
+			headers_mp.put("Content-type","application/json");
+			param_mp = Map();
+			param_mp.put("app_id","378b2db1-01ba-4f45-b8cf-9500ea88056b");
+			param_mp.put("include_player_ids",device_list);
+			// 				param_mp.put("contents",{"en":"✨ This Diwali"});
+			// 				param_mp.put("mutable_content",true);
+			// 				param_mp.put("ios_attachments",{"bg":"https://drive.google.com"});
+			if(Pre_KYC_Stage == "Stage 4")
+			{
+				param_mp.put("headings",{"en":"🚀 " + First_Name + " , Unlock Full Access Before It’s Gone!"});
+			}
+			else if(Pre_KYC_Stage == "Stage 2")
+			{
+				param_mp.put("headings",{"en":"🚀 " + First_Name + " , Exclusive Diamonds Await!"});
+			}
+			param_mp.put("template_id",template_id);
+			response = invokeurl
+			[
+				url :onesignal_url
+				type :POST
+				parameters:param_mp.toString()
+				headers:headers_mp
+			];
+			info "Send Notification status - " + response;
+		}
+	}
+	info mp;
+	if(Email != null && Phone != null && whatsapp_notification == true)
+	{
+		// 	Trigger Journey
+		// 	============================
+		mp = Map();
+		mp.put("lead_email",Email);
+		mp.put("triggerkey",triggerkey);
+		mp.put("listkey","3z013f5a68238b408dd677764b2d133557571fccf3c3e22cc809dc09ab20ed7edd");
+		details = Map();
+		details.put("details",mp);
+		response = invokeurl
+		[
+			url :"https://marketingautomation.zoho.com/api/v1/journeys/" + journey_id + "/action/trigger"
+			type :POST
+			parameters:details
+			connection:"zoho_ma"
+		];
+		info response;
+		// 	===========================
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Pre_KYC_Send_Notification_and_Update_stage FAILED." + newline + "Lead - https://crm.kgkgroup.com/crm/org821143611/tab/Leads/" + lead_id + newline + "" + e,"cliq");
+	info resp;
+}
+}

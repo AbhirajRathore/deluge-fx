@@ -1,0 +1,243 @@
+string standalone.Live_bidding_notifications_b2b(String crmAPIRequest)
+{
+try 
+{
+	crm_env_url = standalone.get_variable_value("config_api","crm_env","url");
+	crmAPIRequestMap = crmAPIRequest.toMap();
+	body = crmAPIRequestMap.get("body");
+	info body;
+	bid_id = body.get("bid_id");
+	contact_id = body.get("contact_id");
+	STREAK = body.get("STREAK");
+	NEAR_TOP = body.get("NEAR_TOP");
+	TOP_RANK = body.get("TOP_RANK");
+	HVY_BID = body.get("HVY_BID");
+	tempmp_id = "";
+	triggerkey = "";
+	journey_id = "";
+	html = list();
+	stoneList = list();
+	// NEW LIST FOR STONES
+	// Fetch contact info
+	con_info = zoho.crm.getRecordById("Contacts",contact_id);
+	Email = con_info.get("Email");
+	info Email;
+	Owner_email = con_info.get("Owner").get("email");
+	// Get all related Live_Bidding records for this contact
+	live_bidding = zoho.crm.getRelatedRecords("Contact_Related_List","Contacts",contact_id);
+	// Current month start date
+	today = zoho.currentdate;
+	monthStart = today.toDate("yyyy-MM-dd").toStartOfMonth();
+	// HTML table header
+	htmlTable = "<div style='text-align:center;'>";
+	htmlTable = htmlTable + "<p><b>Your Bids Snapshot (This Month)</b></p>";
+	htmlTable = htmlTable + "<table style='border-collapse:collapse; margin:auto;'>";
+	htmlTable = htmlTable + "<tr>" + "<th style='border:1px solid #e5e5ea; padding:8px;'>Stone ID</th>" + "<th style='border:1px solid #e5e5ea; padding:8px;'>Your Rank</th>" + "<th style='border:1px solid #e5e5ea; padding:8px;'>Time Left</th>" + "</tr>";
+	// Track processed stones
+	processedStones = list();
+	for each  bid in live_bidding
+	{
+		if(bid.get("bid_from") == "Bid to Buy")
+		{
+			bidDate = bid.get("bidding_time");
+			if(bidDate.toDate() >= monthStart)
+			{
+				// only this month
+				// 				info bidDate;
+				stone = bid.get("Stone");
+				if(stone != null)
+				{
+					stoneId = stone.get("id");
+					if(!processedStones.contains(stoneId))
+					{
+						processedStones.add(stoneId);
+						// Get all bids for this stone
+						allStoneBids = zoho.crm.searchRecords("Live_Bidding","(Stone:equals:" + stoneId + ")and (bid_from:equals:Bid to Buy)");
+						// Group by contact -> highest bid per contact
+						contactBestBids = Map();
+						for each  sBid in allStoneBids
+						{
+							cId = ifnull(sBid.get("Contact").get("id"),"");
+							disc = ifnull(sBid.get("bid_discount"),0).toDecimal();
+							if(!contactBestBids.containKey(cId) || disc > contactBestBids.get(cId))
+							{
+								contactBestBids.put(cId,disc);
+							}
+						}
+						// Convert map to list of maps for sorting
+						bidList = list();
+						for each  cKey in contactBestBids.keys()
+						{
+							temp = Map();
+							temp.put("contactId",cKey);
+							temp.put("discount",contactBestBids.get(cKey));
+							bidList.add(temp);
+						}
+						sortedBids = List();
+						for each  i in bidList
+						{
+							maxIndex = 0;
+							maxDiscount = -1;
+							// Find highest discount in remaining items
+							for each  j in bidList
+							{
+								if(j.get("discount") > maxDiscount)
+								{
+									maxDiscount = j.get("discount");
+									maxIndex = bidList.indexOf(j);
+								}
+							}
+							sortedBids.add(bidList.get(maxIndex));
+							bidList.remove(maxIndex);
+						}
+						bidList = sortedBids;
+						// info bidList;
+						// Find this contact's rank
+						myRank = 0;
+						rankCounter = 1;
+						myBestBid = 0;
+						for each  item in bidList
+						{
+							if(item.get("contactId") == contact_id)
+							{
+								myRank = rankCounter;
+								myBestBid = item.get("discount");
+							}
+							rankCounter = rankCounter + 1;
+						}
+						weekDay = today.getDayOfWeek();
+						// Monday=1 ... Sunday=7
+						thursdayDate = today.addDay(5 - weekDay);
+						// 4 = Thursday
+						// Build datetime string with Thursday date + fixed time
+						endDateTimeStr = thursdayDate.toString("yyyy-MM-dd") + " 14:30:00";
+						endDateTime = endDateTimeStr.toDateTime("yyyy-MM-dd HH:mm:ss");
+						if(today > endDateTime)
+						{
+							endDateTime = endDateTime.addDay(7);
+						}
+						timeLeftStr = hoursBetween(zoho.currenttime,endDateTime) + " hrs";
+						// Add row to HTML table
+						htmlTable = htmlTable + "<tr>" + "<td style='border:1px solid #e5e5ea; padding:8px;'>" + stone.get("name") + " (" + myBestBid + "%)</td>" + "<td style='border:1px solid #e5e5ea; padding:8px;'>#" + myRank + "</td>" + "<td style='border:1px solid #e5e5ea; padding:8px;'>" + timeLeftStr + "</td>" + "</tr>";
+						// Add stone to stoneList for Rich Text field (NEW)
+						stoneList.add(stone.get("name") + " • (" + myBestBid + "%) • #" + myRank + " • " + timeLeftStr);
+						update = zoho.crm.updateRecord("Contacts",contact_id,{"RANK":myRank,"GAP":myBestBid,"Lot_ID":stone.get("name")});
+					}
+				}
+			}
+		}
+	}
+	stoneListStr = "";
+	for each  stoneItem in stoneList
+	{
+		if(stoneListStr != "")
+		{
+			stoneListStr = stoneListStr + "<br>";
+		}
+		stoneListStr = stoneListStr + stoneItem;
+	}
+	// Explanation of stone data format
+	stoneDataFormat = "<p><b>Stone Data Format:</b> Stone Name • Your Best Bid % • #Your Rank • Time Left</p>";
+	// Combine explanation + stone list + note (center aligned)
+	combinedRichText = "<div style='text-align:center;'>" + stoneDataFormat + "<br>" + stoneListStr + "<br><br>" + "<p style='font-size:12px; color:#555;'>Note: Rank is based on your highest bid for each stone this month. Time Left shows remaining time until Thursday 2:30 PM.</p>" + "</div>";
+	// Update the Live_Bidding record (Rich Text field)
+	updateMap = Map();
+	updateMap.put("List_of_Stones",combinedRichText);
+	updateResp = zoho.crm.updateRecord("Live_Bidding",bid_id,updateMap);
+	info updateResp;
+	// ===== Notification triggers (unchanged) =====
+	if(STREAK)
+	{
+		tempmp_id = "5870915000157808234";
+		triggred = "STREAK";
+		triggerkey = "3za419ac160243d644f551811c9633281527322edc2a6952b6130c8f6b65e29af7";
+		journey_id = "3za419ac160243d644f551811c96332815b2b9f5febf5632d7601791cc26602484";
+	}
+	else if(TOP_RANK)
+	{
+		tempmp_id = "5870915000157808183";
+		triggred = "TOP_RANK";
+	}
+	else if(NEAR_TOP)
+	{
+		tempmp_id = "5870915000157800017";
+		triggred = "NEAR_TOP";
+		triggerkey = "3za419ac160243d644f551811c96332815646d449b1cac3d54d3752459fe3442de";
+		journey_id = "3za419ac160243d644f551811c963328154ad07de12fd3b1e3c0edc76eb83377b5";
+	}
+	else if(HVY_BID)
+	{
+		tempmp_id = "";
+		triggred = "HVY_BID";
+		triggerkey = "3za419ac160243d644f551811c963328151ffdfe630e2d4b10cbe9934c7f23ba32";
+		journey_id = "3za419ac160243d644f551811c96332815c2a3d3f8d594b5741d986d16a24a2fd1";
+	}
+	if(journey_id != null && triggerkey != "" && Email != null)
+	{
+		info "Triggred: " + triggred;
+		mp = Map();
+		mp.put("lead_email",Email);
+		mp.put("triggerkey",triggerkey);
+		mp.put("listkey","3z013f5a68238b408dd677764b2d133557571fccf3c3e22cc809dc09ab20ed7edd");
+		details = Map();
+		details.put("details",mp);
+		response = invokeurl
+		[
+			url :"https://marketingautomation.zoho.com/api/v1/journeys/" + journey_id + "/action/trigger"
+			type :POST
+			parameters:details
+			connection:"zoho_ma"
+		];
+		info details;
+		info response;
+		/*
+	if ( tempmp_id != "" ) 
+    {
+    
+	// 	Send Email ================================
+	sendfrom = Map();
+	sendfrom.put("email","crm.support@kgkmail.com");
+	sendto = Map();
+	sendto.put("email",Email);
+	tolist = List();
+	tolist.add(sendto);
+	// 	reply_to_list = List();
+	// 	reply_to_list.add(reply_to);
+	tempmp = Map();
+	tempmp.put("id",tempmp_id);
+	Send_Email_mp = Map();
+	Send_Email_mp.put("from",sendfrom);
+	Send_Email_mp.put("to",tolist);
+	Send_Email_mp.put("template",tempmp);
+	Send_Email_mp.put("org_email",true);
+	Send_Email_dlist = List();
+	Send_Email_dlist.add(Send_Email_mp);
+	Send_Email_data = Map();
+	Send_Email_data.put("data",Send_Email_dlist);
+	// info "Send_Email_data - " + Send_Email_data;
+	Send_Email = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v2.1/Live_Bidding/" + bid_id + "/actions/send_mail"
+		type :POST
+		parameters:Send_Email_data + ""
+		connection:"zohocrm"
+	];
+	info "Send_Email - " + Send_Email;
+	
+	}
+	*/
+	}
+	else
+	{
+		info "Condition does not meet!";
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Live Bidding Whatsapp Notification sending Failed." + newline + " Live Bidding - " + crm_env_url + "/tab/CustomModule27/" + bid_id + " " + newline + "" + e,"cliq");
+	info resp;
+	return e;
+}
+return "";
+}

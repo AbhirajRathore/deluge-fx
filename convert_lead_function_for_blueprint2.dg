@@ -1,0 +1,95 @@
+void automation.convert_lead_function_for_blueprint2(Int lead_id)
+{
+newLine = hexToText("0A");
+options = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v7/Leads/" + lead_id + "/__conversion_options"
+	type :GET
+	connection:"crm"
+];
+info options;
+lead_details = zoho.crm.getRecordById("Leads",lead_id);
+Phone = lead_details.get("Phone");
+Mobile = lead_details.get("Mobile");
+lead_Owner = lead_details.get("Owner").get("id");
+user_id = lead_details.get("user_id");
+if(options != "")
+{
+	conversion_options = options.get("__conversion_options");
+	info conversion_options;
+	Contacts = conversion_options.get("Contacts");
+	Accounts = conversion_options.get("Accounts");
+	if(Contacts.size() > 0)
+	{
+		values_map = Map();
+		// 		values_map.put("overwrite",true);
+		for each  con in Contacts
+		{
+			con_id = con.get("id");
+			con_details = zoho.crm.getRecordById("Contacts",con_id);
+			con_owner = con_details.get("Owner").get("id");
+			if(con_owner != lead_Owner)
+			{
+				info "An existing contact is already assigned to " + con_details.get("Owner").get("name") + newLine + ". Please reach out to Contact Owner or Try a different email.";
+				return;
+			}
+			Account_Name = con.get("Account_Name");
+			if(Account_Name != null)
+			{
+				acc_id = Account_Name.get("id");
+				values_map.put("Accounts",acc_id);
+			}
+			break;
+		}
+		values_map.put("Contacts",con_id);
+		info values_map;
+		response = zoho.crm.convertLead(lead_id,values_map);
+		info response;
+		if(response.containKey("code"))
+		{
+			info response.get("message");
+			return;
+		}
+		mp = Map();
+		if(Phone != "")
+		{
+			mp.put("Phone",Phone);
+		}
+		if(Mobile != "")
+		{
+			mp.put("Mobile",Mobile);
+		}
+		if(user_id != "")
+		{
+			mp.put("user_id",user_id);
+		}
+		update = zoho.crm.updateRecord("Contacts",con_id,mp);
+		openUrl("https://crmsandbox.zoho.com/crm/kgk_dev/tab/Contacts/" + con_id,"new window");
+		info "Lead is converted to Existing Contact";
+		return;
+	}
+	else if(Accounts.size() > 0)
+	{
+		for each  acc in Accounts
+		{
+			acc_id = acc.get("id");
+			break;
+		}
+		values_map = Map();
+		values_map.put("Accounts",acc_id);
+		response = zoho.crm.convertLead(lead_id,values_map);
+		info response;
+		Contacts = response.get("Contacts");
+		openUrl("https://crmsandbox.zoho.com/crm/kgk_dev/tab/Contacts/" + Contacts,"new window");
+		info "LEAD CONVERTED";
+		return;
+	}
+	else
+	{
+		info "Valid Company Not Found, Please select the Company again!";
+		return;
+	}
+}
+info "Valid Company Not Found, Please select the Company again!";
+return;
+}

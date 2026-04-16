@@ -1,0 +1,110 @@
+void automation.Identify_marketing_lead()
+{
+// 	lead = zoho.crm.getRecordById("Leads", 5870915000078781129);
+// 	info lead;
+// 	resp = invokeurl
+// 	[
+// 		url :"https://www.zohoapis.com/crm/v7/Leads/5870915000078781129/__timeline"
+// 		type :GET
+// 		connection:"crm"
+// 	];
+// 		info resp;
+search_query_offset = 50;
+search_query_limit = 50;
+search_query = Map();
+search_query.put("select_query","select id from Contacts where Created_Time between '2025-02-01T00:00:00-00:00' and '2025-02-28T00:00:00-00:00' limit " + search_query_offset + ", " + search_query_limit);
+resp = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v7/coql"
+	type :POST
+	parameters:search_query.toString()
+	connection:"crm"
+];
+data = resp.get("data");
+info data.size();
+createlist = List();
+for each  deal in data
+{
+	con_id = deal.get("id");
+	resp = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v7/Contacts/" + con_id + "/__timeline"
+		type :GET
+		connection:"crm"
+	];
+	// 	info resp;
+	timeline = resp.get("__timeline");
+	for each  log in timeline
+	{
+		automation_details = log.get("automation_details");
+		if(automation_details != null)
+		{
+			if(automation_details.get("type") == "conversion")
+			{
+				lead_id = automation_details.get("conversion").get("record").get("id");
+				lead_resp = invokeurl
+				[
+					url :"https://www.zohoapis.com/crm/v7/Leads/" + lead_id + "/__timeline"
+					type :GET
+					connection:"crm"
+				];
+				// 	info resp;
+				lead_timeline = lead_resp.get("__timeline");
+				for each  lead in lead_timeline
+				{
+					marketing = "no";
+					field_history = lead.get("field_history");
+					if(field_history.size() > 0)
+					{
+						for each  field in field_history
+						{
+							api_name = field.get("api_name");
+							if(api_name == "Owner")
+							{
+								old_value = field.get("_value").get("old");
+								new_value = field.get("_value").get("new");
+								if(old_value == "Mayank Panchal" || old_value == "Rishi Gandhi" || old_value == "Nivedita Saini" || new_value == "Mayank Panchal" || new_value == "Rishi Gandhi" || new_value == "Nivedita Saini")
+								{
+									record_map = {"id":con_id,"Marketing_Team_Lead":true};
+									createlist.add(record_map);
+									marketing = "Yes";
+									break;
+								}
+							}
+							else
+							{
+								continue;
+							}
+						}
+					}
+					else
+					{
+						continue;
+					}
+					if(marketing == "Yes")
+					{
+						break;
+					}
+				}
+			}
+		}
+	}
+}
+info createlist;
+iterations = "".leftpad(20 - 1).toList("");
+for each  iteration in iterations
+{
+	if(createlist.size() <= 100 && createlist.size() > 0)
+	{
+		bulk_update = zoho.crm.bulkUpdate("Contacts",createlist);
+		info bulk_update;
+		break;
+	}
+	else
+	{
+		newListVar = createlist.subList(0,100);
+		bulk_update = zoho.crm.bulkUpdate("Contacts",newListVar);
+		createlist.removeAll(newListVar);
+	}
+}
+}

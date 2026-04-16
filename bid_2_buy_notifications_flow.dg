@@ -1,0 +1,346 @@
+void automation.bid_2_buy_notifications_flow(Int bid_id)
+{
+try 
+{
+	medusa_token = standalone.get_variable_value("config_api","medusa","token");
+	medusa_url = standalone.get_variable_value("config_api","medusa","url");
+	crm_env_url = standalone.get_variable_value("config_api","crm_env","url");
+	onesignal_url = standalone.get_variable_value("config_api","onesignal","url");
+	onesignal_token = standalone.get_variable_value("config_api","onesignal","token");
+	STREAK = false;
+	NEAR_TOP = false;
+	TOP_RANK = false;
+	HVY_BID = false;
+	rank = 1;
+	stone_name = "";
+	user_id_list = List();
+	bid_info = zoho.crm.getRecordById("Live_Bidding",bid_id);
+	Contact = bid_info.get("Contact");
+	// -------------------------
+	// STREAK 3 Logic 
+	// -------------------------
+	if(Contact != null)
+	{
+		contact_id = Contact.get("id");
+		Con_info = zoho.crm.getRecordById("Contacts",contact_id);
+		// Fetch all related bids
+		user_id = Con_info.get("user_id");
+		user_id_list.add(user_id);
+		// 		info user_id;
+		live_bidding = zoho.crm.getRelatedRecords("Contact_Related_List","Contacts",contact_id);
+		date_set = List();
+		for each  bid in live_bidding
+		{
+			bid_from = bid.get("bid_from");
+			if(bid_from == "Bid to Buy")
+			{
+				bid_time_str = bid.get("bidding_time");
+				if(bid_time_str != null)
+				{
+					// 				info bid_time_str;
+					bid_date = bid_time_str.toDate();
+					// 									info bid_date;
+					if(!date_set.contains(bid_date))
+					{
+						date_set.add(bid_date);
+					}
+				}
+			}
+		}
+		date_set.sort(true);
+		// Manual index tracking
+		// 		info date_set;
+		count = date_set.size();
+		info "Bid Days = " + count;
+		if(count >= 3)
+		{
+			temp_list = date_set;
+			// 			info temp_list;
+			idx = 0;
+			for each  d in temp_list
+			{
+				if(idx + 2 < count)
+				{
+					d1 = date_set.get(idx);
+					d2 = date_set.get(idx + 1);
+					d3 = date_set.get(idx + 2);
+					if(d1.daysBetween(d2) == 1 && d2.daysBetween(d3) == 1)
+					{
+						STREAK = true;
+						break;
+					}
+				}
+				idx = idx + 1;
+			}
+		}
+		// -------------------------
+		// NEAR_TOP Logic
+		// -------------------------
+		stone_info = bid_info.get("Stone");
+		if(stone_info != null)
+		{
+			stone_id = stone_info.get("id");
+			stone_name = stone_info.get("name");
+			// Fetch all Live_Bidding records for this stone
+			stone_bids = zoho.crm.searchRecords("Live_Bidding","(Stone:equals:" + stone_id + ")and (bid_from:equals:Bid to Buy)");
+			// 	info stone_bids;
+			if(stone_bids != null && stone_bids.size() > 0)
+			{
+				contact_discount_map = Map();
+				// Build contact -> max discount map
+				for each  bid in stone_bids
+				{
+					bid_from = bid.get("bid_from");
+					if(bid_from == "Bid to Buy")
+					{
+						contact = bid.get("Contact");
+						discount = bid.get("bid_discount");
+						if(contact != null && discount != null)
+						{
+							cid = contact.get("id");
+							disc_val = ifnull(discount.toDecimal(),0.0);
+							if(contact_discount_map.containsKey(cid))
+							{
+								existing = contact_discount_map.get(cid);
+								if(disc_val > existing)
+								{
+									contact_discount_map.put(cid,disc_val);
+								}
+							}
+							else
+							{
+								contact_discount_map.put(cid,disc_val);
+							}
+						}
+					}
+				}
+				// 		info contact_discount_map;
+				// Convert map to list of maps
+				unsorted_list = List();
+				map_keys = contact_discount_map.keys();
+				for each  cid in map_keys
+				{
+					disc = contact_discount_map.get(cid);
+					row = Map();
+					row.put("contact_id",cid);
+					row.put("discount",disc);
+					unsorted_list.add(row);
+				}
+				// 		info unsorted_list;
+				// Insertion Sort: Build final_list in descending order
+				final_list = List();
+				for each  item in unsorted_list
+				{
+					inserted = false;
+					temp_list = List();
+					count = 0;
+					for each  existing in final_list
+					{
+						if(inserted == false && item.get("discount") > existing.get("discount"))
+						{
+							temp_list.add(item);
+							// Insert the new item here
+							inserted = true;
+						}
+						temp_list.add(existing);
+						count = count + 1;
+					}
+					// If not inserted anywhere, append at the end
+					if(inserted == false)
+					{
+						temp_list.add(item);
+					}
+					final_list = temp_list;
+				}
+				// info final_list;
+				// Rank check
+				for each  row in final_list
+				{
+					if(row.get("contact_id") == contact_id)
+					{
+						if(rank <= 10 && rank != 1)
+						{
+							NEAR_TOP = true;
+						}
+						else if(rank == 1)
+						{
+							TOP_RANK = true;
+						}
+						break;
+					}
+					rank = rank + 1;
+				}
+				// 			info "Contact is Near Top - " + NEAR_TOP + ", Rank = " + rank;
+			}
+		}
+		// -------------------------
+		// HVY_BID Logic
+		// -------------------------
+		bid_times = List();
+		for each  bid in live_bidding
+		{
+			bid_from = bid.get("bid_from");
+			if(bid_from == "Bid to Buy")
+			{
+				time_str = bid.get("bidding_time");
+				if(time_str != null)
+				{
+					bid_times.add(time_str);
+				}
+			}
+		}
+		// Sort bid_times ascending
+		bid_times.sort(true);
+		if(bid_times.size() >= 4)
+		{
+			total_bids = bid_times.size();
+			for each  b_time in bid_times
+			{
+				idx = bid_times.indexOf(b_time);
+				if(idx + 3 < total_bids)
+				{
+					first = bid_times.get(idx);
+					fourth = bid_times.get(idx + 3);
+					diff = first.hoursBetween(fourth);
+					// Convert to hours
+					if(diff <= 24.0)
+					{
+						HVY_BID = true;
+						break;
+					}
+				}
+			}
+		}
+		// info "Contact has Heavy Bidding Activity - " + HVY_BID;
+		// 	==============================================
+		// 	Send Whatsapp And Email 
+		// =========================================
+		if(TOP_RANK || NEAR_TOP)
+		{
+			bid_map = Map();
+			bid_map.put("bid_id",bid_id);
+			bid_map.put("STREAK",STREAK);
+			bid_map.put("TOP_RANK",TOP_RANK);
+			bid_map.put("NEAR_TOP",NEAR_TOP);
+			bid_map.put("HVY_BID",HVY_BID);
+			bid_map.put("contact_id",contact_id);
+			notify_resp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v7/functions/live_bidding_notifications_b2b/actions/execute?auth_type=apikey&zapikey=1003.0be59d77b844f99c360e7029a1f12ec1.a0373baf7027cb5491206d845574530b"
+				type :Post
+				parameters:bid_map.toString()
+				connection:"zohocrm"
+			];
+			// info "Send_sheet - " + notify_resp;
+			info notify_resp.get("details").get("output");
+		}
+		// =============================================================
+		// Determine if we should send push, and which template
+		if(STREAK)
+		{
+			template_id = "7da9f95b-4fa0-4609-b64d-3781a50cb629";
+			// STREAK
+			send_push = true;
+			info "Contact is on Streak - " + STREAK;
+		}
+		else if(TOP_RANK)
+		{
+			template_id = "46b0fbf7-2d68-47e1-b664-cca001910f1a";
+			// TOP_RANK
+			send_push = true;
+			info "Contact is TOP_RANK - " + TOP_RANK + ", Rank = " + rank;
+		}
+		else if(NEAR_TOP)
+		{
+			template_id = "1c1ccb8f-a736-43d3-9ac2-da6d2d61701f";
+			// NEAR_TOP
+			send_push = true;
+			info "Contact is Near Top - " + NEAR_TOP + ", Rank = " + rank;
+		}
+		else if(HVY_BID)
+		{
+			template_id = "e276b48a-7702-4424-a8b3-1873f4319af7";
+			// NEAR_TOP
+			send_push = true;
+			info "Contact has Heavy Bidding Activity - " + HVY_BID;
+		}
+	}
+	else
+	{
+		info "No Contact Found";
+		return;
+	}
+	if(send_push == true && user_id != null)
+	{
+		device_id_list = list();
+		// 		Info "Send Push Notification";
+		param = Map();
+		param.put("customerIds",user_id_list);
+		header = Map();
+		header.put("Content-Type","application/json");
+		header.put("Authorization","Bearer " + medusa_token);
+		get_device_id = invokeurl
+		[
+			url :medusa_url + "public/customers-device-uuid"
+			type :POST
+			parameters:param.toString()
+			headers:header.toMap()
+		];
+		info get_device_id;
+		// 	info  get_device_id ;
+		data = get_device_id.get("data");
+		// 		info data;
+		if(data.size() > 0)
+		{
+			for each  cus in data
+			{
+				device_uuid = cus.get("device_uuid");
+				if(device_uuid != "")
+				{
+					device_id_list.add(device_uuid);
+				}
+			}
+		}
+		// 	device_id_list.add("81f0bfdd-1e5b-40e7-b6a3-38b17ea21d1c");
+		// 	device_id_list.add("ab6eb2c6-a201-4118-bf51-b12147a37e4f");
+		// 	device_id_list.add("0b4bb9e5-bf4d-4543-a5aa-1f80010cc6bd");
+		info device_id_list;
+		// 	<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+		// Send Notification 
+		// 	---------------------------------------------------------
+		headers_mp = Map();
+		headers_mp.put("Authorization","Basic " + onesignal_token);
+		headers_mp.put("accept","application/json");
+		headers_mp.put("Content-type","application/json");
+		param_mp = Map();
+		param_mp.put("app_id","378b2db1-01ba-4f45-b8cf-9500ea88056b");
+		param_mp.put("include_player_ids",device_id_list);
+		// 		param_mp.put("mutable_content",true);
+		param_mp.put("template_id",template_id);
+		if(NEAR_TOP)
+		{
+			param_mp.put("custom_data",{"stone_id":stone_name,"rank":rank});
+			// 			update = zoho.crm.updateRecord("Contacts",contact_id,{"RANK":rank,"GAP":0.5,"Lot_ID":stone_name});
+		}
+		else if(TOP_RANK)
+		{
+			param_mp.put("custom_data",{"stone_id":stone_name});
+			// 			update = zoho.crm.updateRecord("Contacts",contact_id,{"RANK":rank,"GAP":0.5,"Lot_ID":stone_name});
+		}
+		response = invokeurl
+		[
+			url :onesignal_url
+			type :POST
+			parameters:param_mp.toString()
+			headers:headers_mp
+		];
+		info response;
+	}
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","Live Bidding Notification function Failed." + newline + " Live Bidding - " + standalone.get_variable_value("config_api","crm_env","url") + "/tab/CustomModule27/" + bid_id + " " + newline + "" + e,"cliq");
+	info resp;
+}
+}

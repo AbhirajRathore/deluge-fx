@@ -1,0 +1,142 @@
+void automation.Remove_Lot_Number(Int id)
+{
+a = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v3/Deals/" + id
+	type :GET
+	connection:"crm"
+];
+// info a;
+Account_Name = a.getJson("data").getJSON("Account_Name").getJSON("name");
+info Account_Name;
+Remove_Lot_Number = a.getJson("data").getJSON("Remove_Lot_Number");
+if(Remove_Lot_Number != null)
+{
+	Remove_Lot_Number = Remove_Lot_Number.replaceAll("\n",",");
+}
+info Remove_Lot_Number;
+inventory_stones = zoho.crm.getRelatedRecords("Inventory3","Deals",id);
+for each  rec in inventory_stones
+{
+	Product_Name = rec.getJson("Stones").getJson("name");
+	info "Product_Name--->" + Product_Name;
+	related_record_id = rec.getJSON("id");
+	for each  rec1 in Remove_Lot_Number
+	{
+		// 		info rec1;
+		if(Product_Name == rec1)
+		{
+			info Product_Name;
+			deleteRecordMap = Map();
+			deleteRecordMap.put("module","Deals_X_Inventory");
+			deleteRecordMap.put("id",related_record_id);
+			deleteResp = zoho.crm.invokeConnector("crm.delete",deleteRecordMap);
+			info deleteResp;
+			break;
+		}
+	}
+}
+/*
+for each  rec in Remove_Lot_Number
+{
+	info rec;
+	search = zoho.crm.searchRecords("Deals_X_Inventory","(Stones:equals:" + rec + ")");
+	info search;
+	Stones = search.getJson("Stones").getJSON("name");
+	info "Stones--->" + Stones;
+	deal_X = search.getJson("id");
+	info deal_X;
+	s = List();
+	for each  rec1 in Stones
+	{
+		search = zoho.crm.searchRecords("Products","(Product_Name:equals:" + rec1 + ")");
+		info "search----->" + search;
+		proname = search.getJson("Product_Name");
+		info proname;
+		WEIGHT = ifnull(search.getJson("carat"),0.0);
+		info WEIGHT;
+		Department = ifnull(search.getJSON("department_code"),0.0);
+		info Department;
+		rate_dollar = ifnull(search.getJson("rate_dollar"),0.0);
+		LISTTOTAL = ifnull(search.getJson("list_total"),0.0);
+		info LISTTOTAL;
+		div = LISTTOTAL / WEIGHT;
+		info div;
+		profit_center = search.getJson("profit_center");
+		info profit_center;
+		mp = Map();
+		mp.put("sale_net_amount",LISTTOTAL);
+		mp.put("amount_dollar",LISTTOTAL);
+		mp.put("barcode",proname);
+		mp.put("carat",WEIGHT);
+		mp.put("rate_dollar",rate_dollar);
+		mp.put("department_code",Department);
+		if(profit_center == null)
+		{
+			mp.put("profit_center","BBMFG-ST");
+		}
+		else
+		{
+			mp.put("profit_center",profit_center);
+		}
+		s.add(mp);
+	}
+	header_data1 = Map();
+	header_data1.put("content-type","application/json");
+	exc = invokeurl
+	[
+		url :"https://prod-nivid-api.kgkit.net:5555/api/nivid/dollar-exchange-rate"
+		type :GET
+		headers:header_data1
+	];
+	info exc;
+	exe = exc.getJson("dollar_exchange_rate");
+	main_map = Map();
+	main_map.put("selected_stones",s);
+	main_map.put("party_name",Account_Name);
+	main_map.put("exchange_bank_rate",exe);
+	main_map.put("gross_amount_dollar",WEIGHT * rate_dollar);
+	main_map.put("remark","CRM TEST REMARK");
+	main_map.put("status","PENDING");
+	main_map.put("un_pack",true);
+	main_map.put("return_invoice_num",5555);
+	info main_map;
+	header_data = Map();
+	header_data.put("Authorization","Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3MTA2NjQyMDYsImV4cCI6MTc0MjIwMDIwNiwidXNlcm5hbWUiOiJjcm0ifQ.yC5oqVEqgYylY5U1hY_g25o1z_Ow-B4OB0hNZ6SpHgw");
+	header_data.put("Content-Type","application/json");
+	resp = invokeurl
+	[
+		url :"https://prod-nivid-api.kgkit.net:5555/api/nivid/pack-unpack-stones"
+		type :POST
+		parameters:main_map.toString()
+		headers:header_data
+	];
+	info resp;
+	if(resp.contains("ref"))
+	{
+		for each  rec2 in Remove_Lot_Number
+		{
+			info rec2;
+			search1 = zoho.crm.searchRecords("Deals_X_Inventory","(Stones:equals:" + rec2 + ")");
+			info search1;
+			Stones1 = search1.getJson("Stones").getJSON("name");
+			info "Stones1--->" + Stones1;
+			deal_X_inv = search1.getJson("id");
+			info deal_X_inv;
+// 			deleteRecordMap = Map();
+// 			deleteRecordMap.put("module","International_Stones");
+// 			deleteRecordMap.put("id",id);
+// 			deleteResp = zoho.crm.invokeConnector("crm.delete",deleteRecordMap);
+// 			info deleteResp;
+			response = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v3/Deals_X_Inventory?ids=" + deal_X_inv + "&wf_trigger=true"
+				type :DELETE
+				connection:"crm"
+			];
+			info "response--->" + response;
+		}
+	}
+}
+*/
+}

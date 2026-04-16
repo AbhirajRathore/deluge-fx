@@ -1,0 +1,32 @@
+void automation.update_difference(Int did)
+{
+resp = zoho.crm.getRecordById("International_Disptaches",did);
+difference = resp.get("Difference");
+info difference;
+iterations = "".leftpad(20 - 1).toList("");
+pageCounter = 1;
+numRecords = 0;
+updateList = List();
+for each  iteration in iterations
+{
+	page = pageCounter;
+	perPage = 200;
+	RecordsListBatch = zoho.crm.getRelatedRecords("International_Stones","International_Disptaches",did,page,perPage);
+	if(RecordsListBatch.isEmpty())
+	{
+		break;
+	}
+	for each  record in RecordsListBatch
+	{
+		record_id = record.get("id");
+		Back = record.get("MSP");
+		recordMap1 = Map();
+		recordMap1.put("MSP",Back + difference);
+		updateStone = zoho.crm.updateRecord("International_Stones",record_id,recordMap1);
+	}
+	// 	info RecordsListBatch.size();
+	pageCounter = pageCounter + 1;
+	numRecords = numRecords + RecordsListBatch.size();
+}
+update_dispacth = zoho.crm.updateRecord("International_Disptaches",did,{"Difference":""});
+}

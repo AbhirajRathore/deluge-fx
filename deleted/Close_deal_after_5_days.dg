@@ -1,0 +1,86 @@
+void automation.Close_deal_after_5_days(Int deal_id)
+{
+deal_details = zoho.crm.getRecordById("Deals",deal_id);
+Account_Name = deal_details.get("Account_Name");
+if(Account_Name == null)
+{
+	info "Account Not Found";
+	return;
+}
+acc_name = deal_details.get("Account_Name").get("name");
+if(acc_name.startsWith("KGK") || acc_name.startsWith("SPARKLE") || acc_name.startsWith("MBK"))
+{
+	info "Deal is Internal";
+	return;
+}
+stock_stones = list();
+discontinue_stones = list();
+won_deals = list();
+deal_stones = zoho.crm.getRelatedRecords("Inventory3","Deals",deal_id);
+if(deal_stones.size() > 0)
+{
+	for each  Stones in deal_stones
+	{
+		stone_id = Stones.get("Stones").get("id");
+		stone_details = zoho.crm.getRecordById("Products",stone_id);
+		entry_by = ifNull(stone_details.get("entry_by"),"");
+		tran_status = stone_details.get("tran_status");
+		lot_location = stone_details.get("lot_location");
+		if(lot_location.startsWith("KGK") || lot_location.startsWith("SPARKLE") || lot_location.startsWith("MBK"))
+		{
+			info "Deal is Internal";
+			return;
+		}
+		else if(lot_location.startsWith("WEB ORDER"))
+		{
+			info "Deal is Website Order";
+			return;
+		}
+		if(tran_status == "STOCK")
+		{
+			if(entry_by == "ASHWIN" || entry_by == "PRITHVI")
+			{
+				stock_stones.add(stone_id);
+			}
+		}
+		else if(tran_status == "INVOICE" && lot_location.contains(acc_name))
+		{
+			won_deals.add(stone_id);
+		}
+		else if(tran_status != "STOCK" && lot_location.contains(acc_name) == false)
+		{
+			discontinue_stones.add(stone_id);
+		}
+	}
+}
+if(won_deals.size() > 0)
+{
+	info "Deal Won";
+	mp = Map();
+	mp.put("Stage","Closed Won");
+	mp.put("Reason_For_Loss__s","");
+	update_deal = zoho.crm.updateRecord("Deals",deal_id,mp,{"trigger":{"workflow"}});
+	info update_deal;
+	return;
+}
+else if(stock_stones.size() > 0)
+{
+	info "Automatic Release";
+	mp = Map();
+	mp.put("Stage","Closed Lost");
+	mp.put("Reason_For_Loss__s","Automatic Release");
+	update_deal = zoho.crm.updateRecord("Deals",deal_id,mp,{"trigger":{"workflow"}});
+	info update_deal;
+	return;
+}
+else if(discontinue_stones.size() > 0)
+{
+	info "Deal Discontinued";
+	mp = Map();
+	mp.put("Stage","Closed Lost");
+	mp.put("Reason_For_Loss__s","Deal Discontinued");
+	update_deal = zoho.crm.updateRecord("Deals",deal_id,mp,{"trigger":{"workflow"}});
+	info update_deal;
+	return;
+}
+}

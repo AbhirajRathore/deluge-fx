@@ -1,0 +1,51 @@
+void automation.Bulk_update_records()
+{
+search_query_offset = 0;
+search_query_limit = 2000;
+search_query = Map();
+search_query.put("select_query","select id, Phone from Leads where Phone is not null limit " + search_query_offset + ", " + search_query_limit);
+resp = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v7/coql"
+	type :POST
+	parameters:search_query.toString()
+	connection:"crm"
+];
+data = resp.get("data");
+info data.size();
+createlist = List();
+for each  deal in data
+{
+	Phone = deal.get("Phone");
+	con_id = deal.get("id");
+	if(Phone.contains(" "))
+	{
+		// 		info Phone;
+		Phone = Phone.replaceAll(" ","");
+		// 		info Phone;
+	}
+	record_map = {"id":con_id,"Mobile":Phone};
+	createlist.add(record_map);
+}
+info "Record Update Size - " + createlist.size();
+iterations = "".leftpad(60 - 1).toList("");
+pageCounter = 1;
+numRecords = 0;
+for each  iteration in iterations
+{
+	if(createlist.size() <= 100 && createlist.size() > 0)
+	{
+		bulk_update = zoho.crm.bulkUpdate("Leads",createlist);
+		info bulk_update;
+		break;
+	}
+	else
+	{
+		newListVar = createlist.subList(0,100);
+		info "List Size - " + newListVar.size();
+		bulk_update = zoho.crm.bulkUpdate("Leads",newListVar);
+		createlist.removeAll(newListVar);
+		info "Left in List - " + createlist.size();
+	}
+}
+}

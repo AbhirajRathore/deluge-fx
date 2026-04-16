@@ -1,0 +1,24 @@
+string standalone.reverse_sync_api(String crmAPIRequest)
+{
+// info crmAPIRequest;
+body = crmAPIRequest.getJSON("body");
+// info body;
+Ref_Date = body.get("ref_date");
+CRM_Ref_Date = body.get("ref_date").replaceAll("2025","25").replaceAll("2026","26");
+stone_loc = body.get("location");
+info "nivid date: " + Ref_Date;
+info "CRM date: " + CRM_Ref_Date;
+info "location: " + stone_loc;
+try 
+{
+	standalone.Reverse_Sync_Update(Ref_Date,CRM_Ref_Date,stone_loc);
+	standalone.Reverse_Sync_Update_Price(Ref_Date,CRM_Ref_Date,stone_loc);
+}
+catch (e)
+{
+	newline = hextoText("0A");
+	resp = zoho.cliq.postToChat("CT_2243198219419748045_806975983","reverse_sync_api function Failed - " + stone_loc + " - " + Ref_Date + newline + e,"cliq");
+	info resp;
+}
+return "";
+}

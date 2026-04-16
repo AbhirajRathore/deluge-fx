@@ -1,0 +1,14 @@
+string button.send_email_kyc_button(String kyc_id)
+{
+email_sheet = Map();
+email_sheet.put("kyc_id",kyc_id);
+Send_sheet = invokeurl
+[
+	url :"https://www.zohoapis.com/crm/v7/functions/send_kyc_email_to_client/actions/execute?auth_type=apikey&zapikey=1003.0be59d77b844f99c360e7029a1f12ec1.a0373baf7027cb5491206d845574530b"
+	type :Post
+	parameters:email_sheet.toString()
+	connection:"zohocrm"
+];
+info "Send_sheet - " + Send_sheet;
+return Send_sheet.get("details").get("output");
+}

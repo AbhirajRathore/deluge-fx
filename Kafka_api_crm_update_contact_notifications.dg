@@ -1,0 +1,35 @@
+void automation.Kafka_api_crm_update_contact_notifications(Int Contact_id)
+{
+kafka_token = standalone.get_variable_value("config_api","kafka","token");
+kafka_url = standalone.get_variable_value("config_api","kafka","url");
+contact_details = zoho.crm.getRecordById("Contacts",Contact_id);
+notifications = ifNull(contact_details.get("notifications"),"All Notifications");
+mobile_notification = contact_details.get("mobile_notification");
+web_notification = contact_details.get("web_notification");
+email_notification = contact_details.get("email_notification");
+user_id = contact_details.get("user_id");
+if(user_id == null)
+{
+	return;
+}
+main_map = Map();
+main_map.put("id","");
+main_map.put("user_id",user_id);
+main_map.put("From_KGK_Online",true);
+main_map.put("notifications",notifications);
+main_map.put("web_notification",web_notification);
+main_map.put("mobile_notification",mobile_notification);
+main_map.put("email_notification",email_notification);
+info main_map;
+header = Map();
+header.put("Authorization","Bearer " + kafka_token);
+header.put("Content-Type","application/json");
+response = invokeurl
+[
+	url :kafka_url + "/api/crm/update-contact-notifications"
+	type :POST
+	parameters:main_map.toString()
+	headers:header
+];
+info response;
+}
