@@ -4,7 +4,7 @@ import {
   Card, CardHeader, CardBody, Button, useHostTheme, Spacer, Pill,
 } from 'cursor/canvas';
 
-// ── Deleted files (108) ────────────────────────────────────────────────────
+// ── Deleted files (97) ────────────────────────────────────────────────────
 
 const DELETED: Array<{ name: string; cluster: string }> = [
   // Reverse Sync (3 remain deleted; api + two schedule scripts)
@@ -38,7 +38,6 @@ const DELETED: Array<{ name: string; cluster: string }> = [
   { name: 'Send_Invoice_status_tot_kafka', cluster: 'Kafka/Webhook' },
   { name: 'Send_Contact_Owner_Date_to_Webhook', cluster: 'Kafka/Webhook' },
   { name: 'Send_Contact_Owner_Date_to_Webhook1', cluster: 'Kafka/Webhook' },
-  { name: 'Send_push_notification', cluster: 'Kafka/Webhook' },
   // Consignment
   { name: 'consignment', cluster: 'Consignment' },
   { name: 'Consignment_Return', cluster: 'Consignment' },
@@ -54,15 +53,9 @@ const DELETED: Array<{ name: string; cluster: string }> = [
   // Bid2Buy (unused)
   { name: 'Sum_up_calculation_for_bid2buy', cluster: 'Bid2Buy (unused)' },
   // Misc
-  { name: 'update_ledger_code_webhook', cluster: 'Misc' },
   { name: 'detectMismatchTriggerEmail', cluster: 'Misc' },
-  { name: 'bulk_delete_from_recycle_bin', cluster: 'Misc' },
   { name: 'Update_account_customer_status', cluster: 'Misc' },
-  { name: 'add_notes_from_subfrom', cluster: 'Misc' },
-  { name: 'Update_Website_order_clear_inventory', cluster: 'Misc' },
-  { name: 'manually_sync_account', cluster: 'Misc' },
   { name: 'client_script_get_related_contacts', cluster: 'Misc' },
-  { name: 'add_contact_to_demand_jorney', cluster: 'Misc' },
   { name: 'update_amount_on_sales', cluster: 'Misc' },
   { name: 'Test_function', cluster: 'Misc' },
   { name: 'update_member_account_to_parent', cluster: 'Misc' },
@@ -88,7 +81,6 @@ const DELETED: Array<{ name: string; cluster: string }> = [
   { name: 'Bulk_update_records', cluster: 'Misc' },
   { name: 'stones_return_functions13112', cluster: 'Misc' },
   { name: 'stones_return_functions131121', cluster: 'Misc' },
-  { name: 'Create_record_from_Deal_subform', cluster: 'Misc' },
   { name: 'update_stage_list_view_button', cluster: 'Misc' },
   { name: 'update_stone_location_field_in_deal', cluster: 'Misc' },
   { name: 'Validate_Contact_Name_Deals', cluster: 'Misc' },
@@ -98,7 +90,6 @@ const DELETED: Array<{ name: string; cluster: string }> = [
   { name: 'Transaction_Sale_return111111111111111111', cluster: 'Misc' },
   { name: 'Transaction_Sale_return1111111111111111111', cluster: 'Misc' },
   { name: 'Update_related_deal_and_lead_source_on_inventory', cluster: 'Misc' },
-  { name: 'invoke_url_for_js', cluster: 'Misc' },
   { name: 'Update_account_status', cluster: 'Misc' },
   { name: 'Download_stock_list11', cluster: 'Misc' },
   { name: 'Download_stock_list111', cluster: 'Misc' },
@@ -111,7 +102,6 @@ const DELETED: Array<{ name: string; cluster: string }> = [
   { name: 'Update_data_from_acc_to_Memo', cluster: 'Misc' },
   { name: 'Update_line_item', cluster: 'Misc' },
   { name: 'Remove_Lot_Number', cluster: 'Misc' },
-  { name: 'testing_function', cluster: 'Misc' },
   { name: 'Auto_Currency', cluster: 'Misc' },
   { name: 'Populate_inventory_fields', cluster: 'Misc' },
   { name: 'ZFS_Link', cluster: 'Misc' },
@@ -120,7 +110,6 @@ const DELETED: Array<{ name: string; cluster: string }> = [
   { name: 'Update_Address_from_the_Account', cluster: 'Misc' },
   { name: 'Update_contacts_status', cluster: 'Misc' },
   { name: 'Customer_Onboard_Email_Sent', cluster: 'Misc' },
-  { name: 'Send_confirm_transaction_Failed_email', cluster: 'Misc' },
   { name: 'Update_subform', cluster: 'Misc' },
   { name: 'reset_Website_password_of_contacts1', cluster: 'Misc' },
   { name: 'assign_task_based_on_owner', cluster: 'Misc' },
@@ -203,6 +192,7 @@ const NON_TRIVIAL: TreeNode[] = [
 ];
 
 const SINGLE_LEVEL_GET_VAR = [
+  'Create_record_from_Deal_subform',
   'Send_KYC_approved_Send_KAM_Create_Password',
   'Customer_onboard_button',
   'create_deal_from_tasks',
@@ -217,6 +207,9 @@ const SINGLE_LEVEL_GET_VAR = [
   'restart_kafka1',
   'restart_kafka2',
   'bid_2_buy_notifications',
+  'manually_sync_account',
+  'Send_push_notification',
+  'update_ledger_code_webhook',
 ];
 
 const LEAF_FUNCTIONS = [
@@ -241,6 +234,13 @@ const LEAF_FUNCTIONS = [
   'add_contact_to_post_kyc', 'update_customer_status_in_parent_account',
   'Cart_abandonment_update_stone_added_time', 'Send_Live_bidding_bid_2_buy_Email',
   'update_user_id_on_record', 'update_user_id (Button)', 'update_user_id (Automation)',
+  'add_contact_to_demand_jorney',
+  'add_notes_from_subfrom',
+  'bulk_delete_from_recycle_bin',
+  'invoke_url_for_js',
+  'Send_confirm_transaction_Failed_email',
+  'testing_function',
+  'Update_Website_order_clear_inventory',
 ];
 
 // ── Tree row component ─────────────────────────────────────────────────────
@@ -327,8 +327,8 @@ export default function DelugeFunctionAudit() {
 
       <Grid columns={3} gap={16}>
         <Stat value="189" label="Total Functions" />
-        <Stat value="81" label="Active (Root)" tone="success" />
-        <Stat value="108" label="Moved to deleted/" tone="warning" />
+        <Stat value="92" label="Active (Root)" tone="success" />
+        <Stat value="97" label="Moved to deleted/" tone="warning" />
       </Grid>
 
       <Divider />
@@ -338,7 +338,7 @@ export default function DelugeFunctionAudit() {
           onClick={() => setView('deleted')}
           variant={view === 'deleted' ? 'primary' : 'secondary'}
         >
-          Part A — Deleted Functions (108)
+          Part A — Deleted Functions (97)
         </Button>
         <Button
           onClick={() => setView('tree')}
@@ -396,7 +396,7 @@ export default function DelugeFunctionAudit() {
           <Stack gap={4}>
             <H2>Dependency Tree</H2>
             <Text tone="secondary" size="small">
-              All 81 active functions. Click a row to collapse its subtree.
+              All 92 active functions. Click a row to collapse its subtree.
             </Text>
             <Row gap={16} style={{ flexWrap: 'wrap', marginTop: 4 }}>
               {[
